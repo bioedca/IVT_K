@@ -1,0 +1,52 @@
+{
+  "id": "comparison_hierarchy",
+  "title": "Comparison Hierarchy",
+  "sections": [
+    {
+      "heading": "Overview",
+      "content": "The comparison hierarchy defines how mutant activity is compared to references. Understanding this structure is essential for interpreting fold changes and their precision."
+    },
+    {
+      "heading": "Reference Constructs",
+      "content": "Two types of reference constructs anchor all comparisons:",
+      "subsections": [
+        {
+          "heading": "Wild-Type (WT)",
+          "content": "Each protein family has one WT construct. Mutant fold changes are calculated relative to their family's WT."
+        },
+        {
+          "heading": "Unregulated",
+          "content": "A universal reference present on all plates. Enables comparison of WT activities across families and provides a global anchor."
+        }
+      ]
+    },
+    {
+      "heading": "Comparison Types",
+      "content": "Comparisons have different precision based on how constructs are connected:",
+      "subsections": [
+        {
+          "heading": "Direct (VIF = 1.0)",
+          "content": "Constructs measured on the same plate. Highest precision."
+        },
+        {
+          "heading": "One-Hop (VIF = √2 ≈ 1.41)",
+          "content": "Connected through a common third construct on overlapping plates."
+        },
+        {
+          "heading": "Two-Hop (VIF = 2.0)",
+          "content": "Connected through two intermediate constructs. Lower precision."
+        },
+        {
+          "heading": "Four-Hop (VIF = 4.0)",
+          "content": "Cross-family comparisons through WT → Unregulated → WT path. Lowest precision."
+        }
+      ]
+    },
+    {
+      "heading": "Partial Analysis",
+      "content": "If unregulated or WT is missing from some plates, only within-family comparisons may be possible. The system automatically detects analysis scope."
+    }
+  ],
+  "why_it_matters": "Understanding VIF helps interpret results: a fold change with VIF=4 has twice the CI width of VIF=1. Focus precision improvements on high-VIF comparisons.",
+  "related": ["hierarchical_model", "power_analysis", "forest_plot"]
+}

@@ -1,0 +1,56 @@
+# IVT Kinetics Analyzer - Main Application Service
+# Phase 11.9-11.10: systemd service configuration
+#
+# Installation:
+#   sudo cp deploy/ivt-app.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable ivt-app
+#   sudo systemctl start ivt-app
+#
+# Logs:
+#   sudo journalctl -u ivt-app -f
+
+[Unit]
+Description=IVT Kinetics Analyzer Web Application
+Documentation=https://github.com/bioedcam/IVT_Kinetics_Analyzer
+After=network.target
+
+[Service]
+Type=simple
+User=bioedca
+Group=bioedca
+WorkingDirectory=/home/bioedca/IVT_KINETICS_ANALYZER
+
+# Environment
+Environment=FLASK_ENV=production
+Environment=LOG_LEVEL=INFO
+Environment=LOG_FILE=/home/bioedca/IVT_KINETICS_ANALYZER/logs/app.jsonl
+EnvironmentFile=-/home/bioedca/IVT_KINETICS_ANALYZER/.env
+
+# Conda environment activation and app startup
+ExecStart=/bin/bash -c 'source /home/bioedca/miniconda3/etc/profile.d/conda.sh && conda activate IVT_K && python run.py --production --host 0.0.0.0'
+
+# Restart configuration
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/bioedca/IVT_KINETICS_ANALYZER
+PrivateTmp=true
+
+# Resource limits
+MemoryMax=4G
+CPUQuota=200%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ivt-app
+
+[Install]
+WantedBy=multi-user.target

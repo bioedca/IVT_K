@@ -1,0 +1,38 @@
+{
+  "id": "hierarchical_model",
+  "title": "Hierarchical Modeling",
+  "sections": [
+    {
+      "heading": "Overview",
+      "content": "Hierarchical (mixed-effects) models account for the nested structure of IVT experiments: reactions within wells, wells within plates, plates within sessions. This correctly handles correlations and variance at each level."
+    },
+    {
+      "heading": "Variance Components",
+      "content": "The model separates total variance into components:",
+      "subsections": [
+        {
+          "heading": "Session Variance",
+          "content": "Day-to-day variation in reagent preparation, instrument calibration, and lab conditions."
+        },
+        {
+          "heading": "Plate Variance",
+          "content": "Plate-to-plate variation within a session, including edge effects and handling differences."
+        },
+        {
+          "heading": "Residual Variance",
+          "content": "Well-to-well variation not explained by session or plate effects."
+        }
+      ]
+    },
+    {
+      "heading": "MCMC Diagnostics",
+      "content": "Bayesian estimation uses MCMC sampling. Check R-hat < 1.01 (convergence), ESS > 400 (sufficient samples), and zero divergent transitions (sampling stability)."
+    },
+    {
+      "heading": "Interpreting Results",
+      "content": "Fold changes are reported with 95% credible intervals. P(FC > 0) indicates directional certainty. P(|FC| > threshold) indicates probability of meaningful effect."
+    }
+  ],
+  "why_it_matters": "Hierarchical modeling provides honest uncertainty estimates by accounting for all sources of variation. Ignoring hierarchy leads to overconfident (too narrow) confidence intervals.",
+  "related": ["comparison_hierarchy", "power_analysis", "variance_decomposition"]
+}

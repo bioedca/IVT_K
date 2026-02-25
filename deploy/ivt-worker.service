@@ -1,0 +1,55 @@
+# IVT Kinetics Analyzer - Huey Worker Service
+# Phase 11.9-11.10: systemd service configuration
+#
+# Installation:
+#   sudo cp deploy/ivt-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable ivt-worker
+#   sudo systemctl start ivt-worker
+#
+# Logs:
+#   sudo journalctl -u ivt-worker -f
+
+[Unit]
+Description=IVT Kinetics Analyzer Background Worker (Huey)
+Documentation=https://github.com/bioedcam/IVT_Kinetics_Analyzer
+After=network.target ivt-app.service
+Requires=ivt-app.service
+
+[Service]
+Type=simple
+User=bioedca
+Group=bioedca
+WorkingDirectory=/home/bioedca/IVT_KINETICS_ANALYZER
+
+# Environment
+Environment=LOG_LEVEL=INFO
+Environment=LOG_FILE=/home/bioedca/IVT_KINETICS_ANALYZER/logs/worker.jsonl
+
+# Conda environment activation and worker startup
+ExecStart=/bin/bash -c 'source /home/bioedca/miniconda3/etc/profile.d/conda.sh && conda activate IVT_K && python scripts/run_huey_worker.py'
+
+# Restart configuration
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/bioedca/IVT_KINETICS_ANALYZER
+PrivateTmp=true
+
+# Resource limits (worker may need more memory for MCMC)
+MemoryMax=8G
+CPUQuota=400%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ivt-worker
+
+[Install]
+WantedBy=multi-user.target

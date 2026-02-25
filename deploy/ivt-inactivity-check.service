@@ -1,0 +1,44 @@
+# IVT Kinetics Analyzer - Inactivity Check Service
+# Flags projects with no activity for > 6 months
+#
+# Installation:
+#   sudo cp deploy/ivt-inactivity-check.service /etc/systemd/system/
+#   sudo cp deploy/ivt-inactivity-check.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable ivt-inactivity-check.timer
+#   sudo systemctl start ivt-inactivity-check.timer
+#
+# Manual trigger:
+#   sudo systemctl start ivt-inactivity-check.service
+#
+# Logs:
+#   sudo journalctl -u ivt-inactivity-check -f
+
+[Unit]
+Description=IVT Kinetics Analyzer - Inactive Project Check
+Documentation=https://github.com/bioedcam/IVT_Kinetics_Analyzer
+After=network.target
+
+[Service]
+Type=oneshot
+User=bioedca
+Group=bioedca
+WorkingDirectory=/home/bioedca/IVT_KINETICS_ANALYZER
+
+# Conda environment activation and script execution
+ExecStart=/bin/bash -c 'source /home/bioedca/miniconda3/etc/profile.d/conda.sh && conda activate IVT_K && python scripts/check_inactive_projects.py --warn'
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/bioedca/IVT_KINETICS_ANALYZER
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ivt-inactivity-check
+
+[Install]
+WantedBy=multi-user.target

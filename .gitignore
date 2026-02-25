@@ -1,0 +1,99 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Project specific
+*.db
+*.db-wal
+*.db-shm
+ivt_kinetics.db
+huey.db
+
+# Data directories (keep structure, ignore contents)
+data/projects/*
+!data/projects/.gitkeep
+data/checkpoints/
+data/raw_files/
+logs/*.jsonl
+logs/*.log
+
+# MCMC traces
+data/projects/*/traces/*.nc
+*.nc
+
+# Alembic - migrations should be committed
+# alembic/versions/*.py was incorrectly ignoring migrations
+
+# Debug output artifacts
+debug.txt
+*.debug.txt
+diagnostic.md
+
+# OS files
+.DS_Store
+Thumbs.db
+huey_worker.pid

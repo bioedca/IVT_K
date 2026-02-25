@@ -1,0 +1,34 @@
+{
+  "id": "curve_fitting",
+  "title": "Curve Fitting",
+  "sections": [
+    {
+      "heading": "Overview",
+      "content": "Curve fitting extracts kinetic parameters from raw fluorescence time series data. The exponential approach model fits the characteristic shape of IVT reactions."
+    },
+    {
+      "heading": "The Kinetic Model",
+      "content": "F(t) = F_max × (1 - exp(-k_obs × (t - t_lag))) + F_0, where F_max is maximum fluorescence, k_obs is the rate constant, t_lag is lag time, and F_0 is baseline."
+    },
+    {
+      "heading": "Fit Quality Indicators",
+      "content": "R² measures how well the model explains variance (>0.95 is good). RMSE measures average residual magnitude. Both should be inspected for systematic deviations.",
+      "subsections": [
+        {
+          "heading": "Good Fit",
+          "content": "R² > 0.95, residuals randomly scattered, no systematic pattern."
+        },
+        {
+          "heading": "Poor Fit",
+          "content": "R² < 0.90, systematic residual patterns (curvature, trends), or failed convergence."
+        }
+      ]
+    },
+    {
+      "heading": "Troubleshooting",
+      "content": "Low R² may indicate: incorrect model, noise/artifacts, incomplete reaction, or signal below detection limit. Check the curve browser for visual inspection."
+    }
+  ],
+  "why_it_matters": "Accurate parameter estimates are essential for meaningful fold change calculations. Poor fits propagate uncertainty through all downstream analyses.",
+  "related": ["curve_browser", "quality_control", "negative_controls"]
+}

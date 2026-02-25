@@ -1,0 +1,30 @@
+# IVT Kinetics Analyzer - Backup Service
+# Phase 11.5-11.6: Automated backup service
+#
+# This service is triggered by ivt-backup.timer
+# Not intended to run continuously
+
+[Unit]
+Description=IVT Kinetics Analyzer Daily Backup
+Documentation=https://github.com/bioedcam/IVT_Kinetics_Analyzer
+
+[Service]
+Type=oneshot
+User=bioedca
+Group=bioedca
+WorkingDirectory=/home/bioedca/IVT_KINETICS_ANALYZER
+
+# Conda environment activation and backup execution
+ExecStart=/bin/bash -c 'source /home/bioedca/miniconda3/etc/profile.d/conda.sh && conda activate IVT_K && python scripts/backup.py --cleanup'
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/bioedca/IVT_KINETICS_ANALYZER
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ivt-backup

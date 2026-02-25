@@ -1,0 +1,55 @@
+# IVT Kinetics Analyzer - Production Dependencies
+
+# Web Framework
+dash>=4.0.0
+dash-mantine-components>=2.5.0
+dash-iconify>=0.1.2
+flask>=3.1.0
+flask-sqlalchemy>=3.1.0
+flask-wtf>=1.2.0  # CSRF protection (Phase 1 Security)
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.18.0
+
+# Task Queue
+huey>=2.6.0
+
+# Scientific Computing
+numpy>=2.3.0
+scipy>=1.17.0
+pandas>=3.0.0
+
+# Statistical Analysis
+statsmodels>=0.14.0
+pymc>=5.27.0
+pytensor>=2.38.0  # 2.37.0 has einsum unpacking bug in LKJCholeskyCov; 2.38.0 fixes it
+arviz>=0.23.0
+
+# Visualization
+plotly>=6.5.0
+kaleido>=1.2.0
+
+# PDF Export
+weasyprint>=68.1
+# Optional: reportlab>=4.0 — enhanced protocol/figure PDF layout (app falls back without it)
+
+# NetCDF / Trace Export
+xarray>=2024.1.0  # Used by export_service and publication_package_service
+h5netcdf>=1.3.0  # NetCDF backend for xarray .to_netcdf()
+h5py>=3.0.0  # Required by h5netcdf's default backend
+
+# Parallelization
+joblib>=1.5.0
+
+# Logging
+structlog>=25.0.0
+
+# Excel Support
+openpyxl>=3.1.0
+
+# Validation
+pydantic>=2.12.0
+
+# Utilities
+python-dotenv>=1.2.0

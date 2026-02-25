@@ -1,0 +1,38 @@
+{
+  "id": "power_analysis",
+  "title": "Power Analysis & Precision Planning",
+  "sections": [
+    {
+      "heading": "Overview",
+      "content": "Power analysis determines how many replicates you need to detect effects with desired precision. The precision dashboard tracks your progress toward CI width targets."
+    },
+    {
+      "heading": "Precision Targets",
+      "content": "The default target is 95% CI width ±0.3 log₂ units. This corresponds to roughly ±30% fold change uncertainty. Adjust targets based on biological significance thresholds."
+    },
+    {
+      "heading": "Factors Affecting Precision",
+      "content": "Precision improves with more replicates but also depends on:",
+      "subsections": [
+        {
+          "heading": "Comparison Type",
+          "content": "Direct comparisons (same plate) are more precise than indirect comparisons through reference constructs. VIF indicates the precision penalty."
+        },
+        {
+          "heading": "Session Variance",
+          "content": "High session-to-session variance requires more sessions, not just more wells per plate."
+        },
+        {
+          "heading": "Plate Effects",
+          "content": "Including constructs on more plates reduces plate-specific bias."
+        }
+      ]
+    },
+    {
+      "heading": "Recommendations",
+      "content": "The calculator suggests co-plating strategies to maximize precision gain per experiment. Prioritize constructs with widest current CIs."
+    }
+  ],
+  "why_it_matters": "Planning experiments with power analysis prevents wasted resources (too many replicates) or inconclusive results (too few). The precision dashboard provides real-time feedback.",
+  "related": ["calculator", "precision_dashboard", "hierarchical_model"]
+}

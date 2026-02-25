@@ -1,0 +1,32 @@
+# IVT Kinetics Analyzer - Backup Timer
+# Phase 11.5-11.6: Scheduled backup timer
+#
+# Installation:
+#   sudo cp deploy/ivt-backup.service /etc/systemd/system/
+#   sudo cp deploy/ivt-backup.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable ivt-backup.timer
+#   sudo systemctl start ivt-backup.timer
+#
+# Check status:
+#   sudo systemctl list-timers | grep ivt-backup
+#
+# Manual trigger:
+#   sudo systemctl start ivt-backup.service
+
+[Unit]
+Description=Daily backup for IVT Kinetics Analyzer
+Documentation=https://github.com/bioedcam/IVT_Kinetics_Analyzer
+
+[Timer]
+# Run daily at midnight
+OnCalendar=*-*-* 00:00:00
+
+# Run immediately if we missed a scheduled run
+Persistent=true
+
+# Add some randomness to avoid all systems backing up at exactly the same time
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

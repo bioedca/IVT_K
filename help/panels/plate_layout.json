@@ -1,0 +1,38 @@
+{
+  "id": "plate_layout",
+  "title": "Plate Layout Editor",
+  "sections": [
+    {
+      "heading": "Overview",
+      "content": "A plate layout defines which constructs go in which wells. The layout editor lets you create, edit, and reuse layouts across experiments."
+    },
+    {
+      "heading": "Selection Methods",
+      "content": "Select wells using several methods:",
+      "subsections": [
+        {
+          "heading": "Click Selection",
+          "content": "Click individual wells to select them. Hold Ctrl/Cmd to add to selection, Shift to select ranges."
+        },
+        {
+          "heading": "Row/Column Selection",
+          "content": "Click row letters (A-H) or column numbers (1-12) to select entire rows or columns."
+        },
+        {
+          "heading": "Pattern Fill",
+          "content": "Use the pattern fill tool to quickly assign constructs in regular patterns (alternating rows, checkerboard, etc.)."
+        }
+      ]
+    },
+    {
+      "heading": "Well Types",
+      "content": "Wells can be assigned as: Sample (construct + ligand), Negative Control (no template), Blank (background correction), or Empty."
+    },
+    {
+      "heading": "Replicates",
+      "content": "The calculator recommends replicate counts based on desired precision. Spread replicates across rows and columns to minimize systematic effects."
+    }
+  ],
+  "why_it_matters": "A well-designed plate layout maximizes precision by ensuring all constructs have proper controls and sufficient replicates for statistical analysis.",
+  "related": ["construct_registry", "negative_controls", "calculator"]
+}

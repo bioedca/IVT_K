@@ -1,0 +1,53 @@
+/* Print styles for digestion calculator protocol */
+@media print {
+    /* Kill all height/min-height that force blank trailing pages */
+    html, body,
+    #react-entry-point,
+    .mantine-AppShell-root,
+    .mantine-AppShell-main,
+    .mantine-MantineProvider-root {
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    /* Hide app shell header, page header, input panel, print button,
+       Dash debug tools, and any fixed-position widgets */
+    .mantine-AppShell-header,
+    .dig-input-col,
+    .dig-page-header,
+    .dig-no-print,
+    ._dash-debug-menu,
+    .dash-debug-menu,
+    #_dash-app-content + div,
+    [class*="dash-debug"],
+    [style*="position: fixed"],
+    [style*="position:fixed"] {
+        display: none !important;
+    }
+
+    /* Remove AppShell header offset */
+    .mantine-AppShell-main {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    /* Container bottom padding can push a blank page */
+    .mantine-Container-root {
+        padding-bottom: 0 !important;
+    }
+
+    /* Output column takes full width */
+    .dig-output-col {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Cleaner print: remove paper borders/shadows */
+    .dig-output-col .mantine-Paper-root {
+        border: none !important;
+        box-shadow: none !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+}

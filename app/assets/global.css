@@ -1,0 +1,539 @@
+/* =============================================================================
+   Scientific Editorial Theme - Global Styles
+   IVT Kinetics Analyzer
+   ============================================================================= */
+
+/* =============================================================================
+   Phase 1.1 — CSS Token System
+   ============================================================================= */
+
+/* --- Light Mode Tokens --- */
+[data-mantine-color-scheme="light"] {
+    /* Backgrounds */
+    --page-bg: #FAFAF7;
+    --bg-deep: #F4F4F0;
+    --bg-surface: #FFFFFF;
+    --bg-elevated: #FFFFFF;
+    --bg-input: #FFFFFF;
+    --bg-hover: #F0F0EC;
+
+    /* Accents */
+    --accent-teal: #0C7C6F;
+    --accent-teal-hover: #0A6B60;
+    --accent-teal-dim: rgba(12, 124, 111, 0.08);
+    --accent-amber: #D4860B;
+    --accent-green: #1B9E7A;
+    --accent-red: #E03131;
+
+    /* Text */
+    --text-primary: #1A1B1E;
+    --text-secondary: #495057;
+    --text-tertiary: #868E96;
+    --text-inverted: #FFFFFF;
+
+    /* Borders */
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --border-medium: rgba(0, 0, 0, 0.15);
+    --border-focus: rgba(12, 124, 111, 0.5);
+
+    /* Shadows */
+    --shadow-glow-teal: 0 0 8px rgba(12, 124, 111, 0.15);
+    --shadow-glow-green: 0 0 6px rgba(27, 158, 122, 0.15);
+
+    /* Charts */
+    --chart-bg: #FFFFFF;
+    --chart-grid: rgba(0, 0, 0, 0.06);
+    --chart-zeroline: rgba(0, 0, 0, 0.12);
+    --chart-text: #495057;
+
+    /* Depth */
+    --depth-low: 0 1px 3px rgba(0, 0, 0, 0.04);
+    --depth-mid: 0 2px 8px rgba(0, 0, 0, 0.06);
+    --depth-high: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* --- Dark Mode Tokens --- */
+[data-mantine-color-scheme="dark"] {
+    /* Backgrounds */
+    --page-bg: #141b1b;
+    --bg-deep: #141b1b;
+    --bg-surface: #1c2626;
+    --bg-elevated: #243232;
+    --bg-input: #1a2424;
+    --bg-hover: #223030;
+
+    /* Accents */
+    --accent-teal: #26CEBC;
+    --accent-teal-hover: #4DDCCE;
+    --accent-teal-dim: rgba(38, 206, 188, 0.08);
+    --accent-amber: #f0b429;
+    --accent-green: #2dd4a0;
+    --accent-red: #ff6b6b;
+
+    /* Text */
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a8a8;
+    --text-tertiary: #6b7575;
+    --text-inverted: #141b1b;
+
+    /* Borders */
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-medium: rgba(255, 255, 255, 0.12);
+    --border-focus: rgba(38, 206, 188, 0.5);
+
+    /* Shadows */
+    --shadow-glow-teal: 0 0 8px rgba(38, 206, 188, 0.2);
+    --shadow-glow-green: 0 0 6px rgba(45, 212, 160, 0.2);
+
+    /* Charts */
+    --chart-bg: #1e2a2a;
+    --chart-grid: rgba(255, 255, 255, 0.06);
+    --chart-zeroline: rgba(255, 255, 255, 0.12);
+    --chart-text: #c0c0c0;
+
+    /* Depth */
+    --depth-low: 0 1px 3px rgba(0, 0, 0, 0.2);
+    --depth-mid: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --depth-high: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+
+/* =============================================================================
+   Page Transitions
+   ============================================================================= */
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#page-content {
+    animation: fadeSlideIn 0.25s ease-out;
+}
+
+
+/* =============================================================================
+   Phase 2.1 — AppShell Backgrounds (Depth L0)
+   ============================================================================= */
+
+[data-mantine-color-scheme="light"] .mantine-AppShell-main {
+    background-color: #FAFAF7;
+}
+
+[data-mantine-color-scheme="dark"] .mantine-AppShell-main {
+    background-color: #141b1b;
+}
+
+
+/* =============================================================================
+   Phase 2.2–2.4 — Paper, Modal, Popover, Menu Depth
+   ============================================================================= */
+
+/* Paper: dark bg-surface + border-subtle */
+[data-mantine-color-scheme="dark"] .mantine-Paper-root {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+}
+
+/* Paper focus-within: teal border for active cards */
+[data-mantine-color-scheme="dark"] .mantine-Paper-root:focus-within {
+    border-color: rgba(38, 206, 188, 0.25);
+}
+
+/* Modal: dark bg-elevated + border-subtle */
+[data-mantine-color-scheme="dark"] .mantine-Modal-content {
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+}
+
+/* Popover dropdown: dark bg-elevated */
+[data-mantine-color-scheme="dark"] .mantine-Popover-dropdown {
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+}
+
+/* Menu dropdown: dark bg-elevated */
+[data-mantine-color-scheme="dark"] .mantine-Menu-dropdown {
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+}
+
+/* Title text color in dark mode */
+[data-mantine-color-scheme="dark"] .mantine-Title-root {
+    color: var(--text-primary);
+}
+
+
+/* =============================================================================
+   Phase 3.1 — Sidebar Refinements
+   ============================================================================= */
+
+/* Sidebar NavLink base transition */
+.mantine-NavLink-root {
+    border-left: 3px solid transparent;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+/* Light mode NavLink hover */
+[data-mantine-color-scheme="light"] .mantine-NavLink-root:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Dark mode NavLink hover: teal 5% opacity */
+[data-mantine-color-scheme="dark"] .mantine-NavLink-root:hover {
+    background-color: rgba(38, 206, 188, 0.05);
+}
+
+/* Active NavLink: accent bar + font weight */
+.mantine-NavLink-root[data-active] {
+    font-weight: 600;
+    border-left: 3px solid var(--mantine-primary-color-filled);
+}
+
+/* Active NavLink glow in dark mode */
+[data-mantine-color-scheme="dark"] .mantine-NavLink-root[data-active] .mantine-NavLink-label {
+    text-shadow: 0 0 8px rgba(38, 206, 188, 0.15);
+}
+
+/* Section labels: letter-spacing for polish */
+[data-mantine-color-scheme="dark"] .mantine-NavLink-label {
+    letter-spacing: 0.02em;
+}
+
+
+/* =============================================================================
+   Phase 3.2 — Header Bar
+   ============================================================================= */
+
+/* Dark header background */
+[data-mantine-color-scheme="dark"] .mantine-AppShell-header {
+    background-color: #111818;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+/* Header ActionIcon hover feedback */
+[data-mantine-color-scheme="dark"] .mantine-AppShell-header .mantine-ActionIcon-root:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+
+/* =============================================================================
+   Phase 3.3 — Stepper Completed Step Glow
+   ============================================================================= */
+
+[data-mantine-color-scheme="dark"] .mantine-Stepper-stepCompletedIcon {
+    box-shadow: 0 0 6px rgba(45, 212, 160, 0.2);
+}
+
+
+/* =============================================================================
+   Phase 3.4 — Card Hover-Lift
+   ============================================================================= */
+
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--mantine-shadow-md);
+}
+
+/* Dark mode: teal glow on card hover */
+[data-mantine-color-scheme="dark"] .hover-lift:hover {
+    box-shadow: 0 -1px 8px rgba(38, 206, 188, 0.08),
+                0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+
+/* =============================================================================
+   Phase 3.5 — Tables
+   ============================================================================= */
+
+/* Table zebra striping */
+[data-mantine-color-scheme="light"] .mantine-Table-tr:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.015);
+}
+[data-mantine-color-scheme="dark"] .mantine-Table-tr:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* Table row hover: teal 4% in dark mode */
+[data-mantine-color-scheme="dark"] .mantine-Table-tr:hover {
+    background-color: rgba(38, 206, 188, 0.04);
+}
+
+/* Table header: dark bg + teal bottom border */
+[data-mantine-color-scheme="dark"] .mantine-Table-thead {
+    background-color: #1a2424;
+}
+[data-mantine-color-scheme="dark"] .mantine-Table-thead .mantine-Table-tr {
+    border-bottom: 2px solid rgba(38, 206, 188, 0.15);
+}
+
+
+/* =============================================================================
+   Phase 3.6 — Form Inputs
+   ============================================================================= */
+
+/* Dark mode input backgrounds */
+[data-mantine-color-scheme="dark"] .mantine-Input-input,
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input {
+    background-color: var(--bg-input);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Focus state: teal border + glow ring */
+[data-mantine-color-scheme="dark"] .mantine-Input-input:focus,
+[data-mantine-color-scheme="dark"] .mantine-Input-input:focus-within,
+[data-mantine-color-scheme="dark"] .mantine-Textarea-input:focus {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px rgba(38, 206, 188, 0.1);
+}
+
+/* Select dropdown in dark mode */
+[data-mantine-color-scheme="dark"] .mantine-Select-dropdown,
+[data-mantine-color-scheme="dark"] .mantine-MultiSelect-dropdown {
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Select option hover */
+[data-mantine-color-scheme="dark"] .mantine-Select-option:hover,
+[data-mantine-color-scheme="dark"] .mantine-MultiSelect-option:hover {
+    background-color: var(--bg-hover);
+}
+
+
+/* =============================================================================
+   Phase 3.7 — Accordions
+   ============================================================================= */
+
+.mantine-Accordion-item {
+    border: none;
+    border-bottom: 1px solid var(--mantine-color-default-border);
+}
+.mantine-Accordion-item:last-child {
+    border-bottom: none;
+}
+.mantine-Accordion-chevron {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+/* Accordion control hover bg in dark mode */
+[data-mantine-color-scheme="dark"] .mantine-Accordion-control:hover {
+    background-color: var(--bg-hover);
+}
+
+/* Active accordion chevron: teal */
+[data-mantine-color-scheme="dark"] .mantine-Accordion-item[data-active] .mantine-Accordion-chevron {
+    color: var(--accent-teal);
+}
+
+
+/* =============================================================================
+   Phase 3.8 — Alerts (variant="light" border)
+   ============================================================================= */
+
+[data-mantine-color-scheme="dark"] .mantine-Alert-root[data-variant="light"] {
+    border: 1px solid var(--border-subtle);
+}
+
+
+/* =============================================================================
+   Phase 3.9 — Buttons
+   ============================================================================= */
+
+/* Button micro-interactions */
+.mantine-Button-root {
+    transition: transform 0.08s ease;
+}
+.mantine-Button-root:active {
+    transform: scale(0.97);
+}
+
+/* Outline variant: dark mode border + hover */
+[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="outline"] {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="outline"]:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+
+/* =============================================================================
+   Phase 3.10 — Scrollbar Styling
+   ============================================================================= */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.25);
+}
+
+/* Dark mode scrollbar */
+[data-mantine-color-scheme="dark"] ::-webkit-scrollbar-track {
+    background: #141b1b;
+}
+
+[data-mantine-color-scheme="dark"] ::-webkit-scrollbar-thumb {
+    background-color: #3a4a4a;
+}
+
+[data-mantine-color-scheme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(38, 206, 188, 0.4);
+}
+
+
+/* =============================================================================
+   Phase 4.1 — Theme Toggle Smooth Transitions
+   ============================================================================= */
+
+body,
+.mantine-AppShell-root,
+.mantine-AppShell-main,
+.mantine-AppShell-header,
+.mantine-AppShell-navbar,
+.mantine-Paper-root,
+.mantine-Card-root,
+.mantine-Modal-content {
+    transition: background-color 400ms ease,
+                color 300ms ease,
+                border-color 300ms ease,
+                box-shadow 300ms ease;
+}
+
+/* Toggle icon rotation */
+#color-scheme-toggle svg {
+    transition: transform 300ms ease;
+}
+
+
+/* =============================================================================
+   Phase 4.2 — Card Entry Animation (dark mode, scoped to page content)
+   ============================================================================= */
+
+[data-mantine-color-scheme="dark"] #page-content .mantine-Paper-root {
+    animation: fadeSlideIn 0.3s ease-out;
+}
+
+
+/* =============================================================================
+   Phase 4.3 — Glow Accents: Progress bar, Badge
+   ============================================================================= */
+
+/* Progress bar glow in dark mode */
+[data-mantine-color-scheme="dark"] .mantine-Progress-section {
+    box-shadow: 0 0 8px rgba(38, 206, 188, 0.2);
+}
+
+/* Badge glow for green/teal variants */
+[data-mantine-color-scheme="dark"] .mantine-Badge-root[data-variant="light"][data-color="teal"],
+[data-mantine-color-scheme="dark"] .mantine-Badge-root[data-variant="light"][data-color="green"],
+[data-mantine-color-scheme="dark"] .mantine-Badge-root[data-variant="light"][data-color="scientific-teal"] {
+    box-shadow: 0 0 4px rgba(38, 206, 188, 0.25);
+}
+
+
+/* =============================================================================
+   Phase 4.5 — Loading Skeleton Colors
+   ============================================================================= */
+
+[data-mantine-color-scheme="dark"] .mantine-Skeleton-root::before {
+    background-color: #1c2626;
+}
+[data-mantine-color-scheme="dark"] .mantine-Skeleton-root::after {
+    background: linear-gradient(90deg, transparent, #2a3a3a, transparent);
+}
+
+
+/* =============================================================================
+   Well Selection Pulse Animation
+   ============================================================================= */
+
+@keyframes wellPulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(12, 124, 111, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 3px rgba(12, 124, 111, 0.15);
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .well-selected {
+        animation: wellPulse 1.5s ease-in-out infinite;
+    }
+}
+
+
+/* =============================================================================
+   Well Hover Micro-interaction
+   ============================================================================= */
+
+.well-cell {
+    transition: transform 0.1s ease;
+}
+
+.well-cell:hover {
+    transform: scale(1.15);
+    z-index: 2;
+    transition: transform 0.1s ease;
+}
+
+
+/* =============================================================================
+   Sidebar Transition
+   ============================================================================= */
+
+.mantine-AppShell-navbar {
+    transition: width 0.2s ease, transform 0.2s ease;
+}
+
+
+/* =============================================================================
+   Breadcrumb Styling
+   ============================================================================= */
+
+#breadcrumb-container {
+    margin-left: 0.5rem;
+}
+
+#breadcrumb-container .mantine-Breadcrumbs-root {
+    flex-wrap: nowrap;
+}
+
+
+/* =============================================================================
+   Print
+   ============================================================================= */
+
+@media print {
+    /* Hide dark mode toggle and sidebar in print */
+    #color-scheme-toggle,
+    .mantine-AppShell-navbar,
+    #breadcrumb-container {
+        display: none !important;
+    }
+}

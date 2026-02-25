@@ -1,0 +1,16 @@
+[Unit]
+Description=Weekly Inactive Project Check Timer
+Documentation=https://github.com/bioedcam/IVT_Kinetics_Analyzer
+
+[Timer]
+# Run weekly on Sunday at 6:00 AM
+OnCalendar=Sun *-*-* 06:00:00
+
+# Catch up if system was down
+Persistent=true
+
+# Random delay to avoid thundering herd
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target

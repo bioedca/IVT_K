@@ -1,0 +1,64 @@
+{
+  "glossary": {
+    "fold change": {
+      "definition": "The ratio of activity between a mutant and its wild-type reference. Expressed in log₂ scale for symmetry: a 2-fold increase is +1, a 2-fold decrease is -1.",
+      "see_also": ["wild-type", "log transformation"]
+    },
+    "wild-type": {
+      "definition": "The reference construct within each protein family, representing the unmodified or canonical sequence. Used as the denominator when calculating fold changes.",
+      "see_also": ["fold change", "unregulated"]
+    },
+    "unregulated": {
+      "definition": "A universal reference construct present on all plates that enables comparisons across different protein families. Provides a common baseline for cross-family analysis.",
+      "see_also": ["wild-type", "anchor"]
+    },
+    "vif": {
+      "definition": "Variance Inflation Factor - a multiplier applied to standard errors when making indirect comparisons. Direct comparisons have VIF=1, one-hop comparisons have VIF=√2, two-hop have VIF=2.",
+      "see_also": ["direct comparison", "indirect comparison"]
+    },
+    "hierarchical model": {
+      "definition": "A statistical model that accounts for the nested structure of data (reactions within plates within sessions). Separates variance into session, plate, and residual components.",
+      "see_also": ["random effects", "variance components"]
+    },
+    "mcmc": {
+      "definition": "Markov Chain Monte Carlo - a sampling algorithm used to estimate posterior distributions in Bayesian statistics. Produces samples that approximate the true distribution.",
+      "see_also": ["posterior", "convergence"]
+    },
+    "posterior": {
+      "definition": "The probability distribution of a parameter after observing data. Combines prior beliefs with evidence from the experiment.",
+      "see_also": ["prior", "bayesian"]
+    },
+    "convergence": {
+      "definition": "The state where MCMC chains have explored the full posterior distribution. Assessed using R-hat (should be <1.01) and ESS (should be >400).",
+      "see_also": ["r-hat", "ess", "mcmc"]
+    },
+    "precision": {
+      "definition": "The reproducibility of measurements, reflected in the width of confidence intervals. Narrower CI = higher precision.",
+      "see_also": ["confidence interval", "accuracy"]
+    },
+    "power analysis": {
+      "definition": "Statistical calculation determining how many replicates are needed to detect an effect of a given size with specified confidence.",
+      "see_also": ["sample size", "effect size"]
+    },
+    "k_obs": {
+      "definition": "Observed rate constant - the apparent first-order rate constant describing how fast the reaction proceeds. Units are min⁻¹ (per minute).",
+      "see_also": ["kinetics", "rate constant"]
+    },
+    "f_max": {
+      "definition": "Maximum fluorescence - the plateau value reached when the reaction is complete. Reflects total product formed.",
+      "see_also": ["fluorescence", "endpoint"]
+    },
+    "negative control": {
+      "definition": "Wells containing all reaction components except template DNA. Used to measure and correct for background fluorescence.",
+      "see_also": ["background", "lod", "loq"]
+    },
+    "lod": {
+      "definition": "Limit of Detection - the lowest signal that can be reliably distinguished from background noise. Calculated as mean background + 3×SD.",
+      "see_also": ["loq", "negative control"]
+    },
+    "loq": {
+      "definition": "Limit of Quantification - the lowest signal that can be reliably quantified. Calculated as mean background + 10×SD.",
+      "see_also": ["lod", "negative control"]
+    }
+  }
+}

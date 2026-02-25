@@ -1,0 +1,33 @@
+{
+  "tooltips": {
+    "cv_threshold": "Coefficient of variation threshold for flagging high replicate variability. Values above this indicate inconsistent measurements.",
+    "vif": "Variance Inflation Factor - multiplier applied to standard error for indirect comparisons. Higher VIF means less precision.",
+    "bsi": "Background Stability Index - measures temporal stability of negative controls. Values near 1.0 indicate stable background.",
+    "lod": "Limit of Detection - the lowest signal reliably distinguishable from background noise (mean + 3*SD).",
+    "loq": "Limit of Quantification - the lowest signal that can be reliably quantified (mean + 10*SD).",
+    "snr": "Signal-to-Noise Ratio - ratio of signal amplitude to background noise. Higher is better (>10 is good, >20 is excellent).",
+    "sbr": "Signal-to-Background Ratio - ratio of signal to background level. Indicates fold elevation above background.",
+    "r_squared": "R-squared (R²) - coefficient of determination measuring how well the model fits the data. Range 0-1, higher is better.",
+    "rmse": "Root Mean Square Error - average magnitude of fit residuals. Lower values indicate better fit.",
+    "k_obs": "Observed rate constant - the apparent first-order rate constant for the kinetic reaction (min⁻¹).",
+    "f_max": "Maximum fluorescence - the plateau fluorescence value at reaction completion.",
+    "t_lag": "Lag time - delay before exponential phase begins, indicating initiation kinetics.",
+    "ci_width": "Confidence Interval Width - the span of the 95% CI. Narrower is more precise. Target is ±0.3 log₂ units.",
+    "r_hat": "R-hat convergence diagnostic - values near 1.0 indicate MCMC chains have converged. Should be <1.01.",
+    "ess": "Effective Sample Size - number of independent samples after accounting for autocorrelation. Should be >400.",
+    "divergent": "Divergent transitions - MCMC sampling failures indicating model issues. Should be zero or very few.",
+    "icc": "Intraclass Correlation Coefficient - proportion of variance due to grouping structure.",
+    "fold_change": "Fold Change - ratio of mutant to wild-type activity. Log₂ transformed for symmetry.",
+    "direct_comparison": "Direct comparison - constructs measured on same plate, highest precision (VIF=1.0).",
+    "indirect_comparison": "Indirect comparison - constructs connected through intermediate references, lower precision.",
+    "unregulated": "Unregulated construct - universal reference present on all plates, enables cross-family comparisons.",
+    "wild_type": "Wild-type (WT) - reference construct within each family, used as denominator for fold change.",
+    "anchor": "Anchor construct - reference point for comparisons. Unregulated is global anchor, WT is family anchor.",
+    "precision_target": "Precision target - desired CI width for fold change estimates. Default is ±0.3 log₂ units.",
+    "negative_control": "Negative control - wells with no template DNA, used to measure background fluorescence.",
+    "blank_well": "Blank well - wells for instrument background correction (no reaction mix).",
+    "split_well": "Split well - single reaction split across multiple wells for volume constraints.",
+    "exclusion": "Exclusion - flagged data point removed from analysis. Requires justification for audit trail.",
+    "qc_flag": "QC flag - quality control indicator marking potential issues for review."
+  }
+}
