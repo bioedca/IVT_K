@@ -16,14 +16,14 @@ alembic>=1.18.0
 huey>=2.6.0
 
 # Scientific Computing
-numpy>=2.3.0
+numpy>=2.3.0,<2.4  # numpy 2.4 breaks pytensor einsum; pin to 2.3.x
 scipy>=1.17.0
 pandas>=3.0.0
 
 # Statistical Analysis
 statsmodels>=0.14.0
-pymc>=5.27.0
-pytensor>=2.38.0  # 2.37.0 has einsum unpacking bug in LKJCholeskyCov; 2.38.0 fixes it
+pymc>=5.27.0,<5.29  # pin minor to avoid unvetted API changes
+pytensor>=2.38.0,<2.39  # 2.37 einsum bug fixed in 2.38; pin to tested range
 arviz>=0.23.0
 
 # Visualization

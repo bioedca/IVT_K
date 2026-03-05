@@ -92,6 +92,9 @@ class ReactionDNAAddition(db.Model):
 
     # DNA stock info
     dna_stock_concentration_ng_ul = Column(Float, nullable=True)
+    stock_concentration_nM = Column(Float, nullable=True)
+    plasmid_size_bp = Column(Integer, nullable=True)
+    achieved_nM = Column(Float, nullable=True)
 
     # Ligand condition (+Lig/-Lig/None)
     ligand_condition = Column(String(10), nullable=True)

@@ -16,7 +16,8 @@ from app.calculator import (
     PipettingProtocol,
     ValidationResult,
 )
-from app.calculator.constants import DEFAULT_OVERAGE_PERCENT
+from app.calculator.constants import DEFAULT_OVERAGE_PERCENT, TARGET_DNA_CONCENTRATION_NM
+from app.calculator.reaction_calculator import LigandConfig
 
 
 class CalculatorService:
@@ -96,6 +97,7 @@ class CalculatorService:
                 'is_wildtype': c.is_wildtype,
                 'is_unregulated': c.is_unregulated,
                 'stock_concentration_ng_ul': c.stock_concentration_ng_ul or 100.0,
+                'plasmid_size_bp': c.plasmid_size_bp,
                 'replicates': replicates_per_construct,
             }
             for c in constructs_db
@@ -298,6 +300,9 @@ class CalculatorService:
                 is_negative_control=addition.is_negative_control,
                 negative_control_type=addition.negative_control_type,
                 dna_stock_concentration_ng_ul=addition.stock_concentration_ng_ul if not addition.is_negative_control else None,
+                stock_concentration_nM=getattr(addition, 'stock_concentration_nM', None),
+                plasmid_size_bp=getattr(addition, 'plasmid_size_bp', None),
+                achieved_nM=getattr(addition, 'achieved_nM', None),
                 ligand_condition=str(lig_cond) if lig_cond else None,
                 dna_volume_ul=addition.dna_volume_ul,
                 water_adjustment_ul=addition.water_adjustment_ul,
@@ -383,6 +388,7 @@ class CalculatorService:
                     'name': dna.construct_name,
                     'id': dna.construct_id,
                     'stock_concentration_ng_ul': dna.dna_stock_concentration_ng_ul or 100.0,
+                    'plasmid_size_bp': dna.plasmid_size_bp,
                 }
                 for dna in setup.dna_additions
                 if not dna.is_negative_control
@@ -397,6 +403,15 @@ class CalculatorService:
                     + (setup.n_negative_dye or 0)
                 )
             )
+            # Build ligand config from stored fields if present
+            ligand_cfg = None
+            if setup.ligand_stock_concentration_um and setup.ligand_final_concentration_um:
+                ligand_cfg = LigandConfig(
+                    enabled=True,
+                    stock_concentration_uM=setup.ligand_stock_concentration_um,
+                    final_concentration_uM=setup.ligand_final_concentration_um,
+                )
+
             mm = calculate_master_mix(
                 n_reactions=n_reactions,
                 dna_mass_ug=setup.dna_mass_ug,
@@ -404,6 +419,9 @@ class CalculatorService:
                 constructs=constructs,
                 negative_template_count=setup.n_negative_template,
                 negative_dye_count=setup.n_negative_dye,
+                reaction_volume_ul=setup.total_reaction_volume_ul,
+                target_dna_nM=TARGET_DNA_CONCENTRATION_NM,
+                ligand_config=ligand_cfg,
             )
 
             protocol = generate_protocol(mm, title=setup.name, created_by=setup.created_by)
