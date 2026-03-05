@@ -322,7 +322,11 @@ def _build_printable_from_setup(setup):
         ])
         dna_rows = [html.Tr(header_cells)]
         for a in setup.dna_additions:
-            stock = f"{a.dna_stock_concentration_ng_ul:.0f}" if a.dna_stock_concentration_ng_ul else "-"
+            # Build stock string with nM info if available
+            if a.dna_stock_concentration_ng_ul:
+                stock = f"{a.dna_stock_concentration_ng_ul:.0f}"
+            else:
+                stock = "-"
             dna = f"{a.dna_volume_ul:.1f}" if a.dna_volume_ul and a.dna_volume_ul > 0 else "-"
             cells = [html.Td(a.construct_name)]
             if has_lig_cond:
@@ -1555,16 +1559,13 @@ def register_calculator_callbacks(app):
                 },
                 "constructs": [
                     {
-                        "id": c["construct_id"] if "construct_id" in c else conc_map.get(c["name"], None), # Try to get ID
-                        # Note: constructs dict created above didn't save ID explicitly, let's fix that loop or infer
-                        # Actually construct object 'c' in the loop had it.
-                        # Let's rebuild the constructs list above to include it or just assume names are unique enough for now?
-                        # Better: The 'constructs' list created earlier in this function (lines 654-668) should include ID.
+                        "id": c.get("construct_id"),
                         "name": c["name"],
                         "family": c.get("family"),
                         "is_wildtype": c.get("is_wildtype"),
                         "is_unregulated": c.get("is_unregulated"),
                         "stock_conc": c.get("stock_concentration_ng_ul"),
+                        "plasmid_size_bp": c.get("plasmid_size_bp"),
                     }
                     for c in constructs
                 ],
@@ -2004,6 +2005,7 @@ def register_calculator_callbacks(app):
                 "is_wildtype": getattr(construct, 'is_wildtype', False) if construct else False,
                 "is_unregulated": getattr(construct, 'is_unregulated', False) if construct else False,
                 "stock_conc": a.dna_stock_concentration_ng_ul,
+                "plasmid_size_bp": a.plasmid_size_bp,
             }
 
         # Build master_mix_components in flat array format
@@ -2040,14 +2042,14 @@ def register_calculator_callbacks(app):
             },
             "constructs": list(seen_constructs.values()),
             "master_mix_components": mm_components,
-            # Note: source_construct_name, stock_concentration_nM, plasmid_size_bp,
-            # and achieved_nM are not persisted to ReactionDNAAddition, so they are
-            # omitted here. The plate layout importer does not require them.
             "dna_additions": [
                 {
                     "construct_name": a.construct_name,
                     "construct_id": a.construct_id,
                     "stock_concentration_ng_ul": a.dna_stock_concentration_ng_ul,
+                    "stock_concentration_nM": a.stock_concentration_nM,
+                    "plasmid_size_bp": a.plasmid_size_bp,
+                    "achieved_nM": a.achieved_nM,
                     "dna_volume_ul": a.dna_volume_ul,
                     "water_adjustment_ul": a.water_adjustment_ul,
                     "total_addition_ul": a.total_addition_ul,
@@ -2161,7 +2163,7 @@ def register_calculator_callbacks(app):
             constructs = plan_data.get("constructs", [])
             params = plan_data.get("parameters", {})
 
-            # Build construct list for calculator
+            # Build construct list for calculator (include plasmid_size_bp for nM targeting)
             construct_list = []
             for c in constructs:
                 construct_list.append({
@@ -2172,14 +2174,22 @@ def register_calculator_callbacks(app):
                     "is_unregulated": c.get("is_unregulated", False),
                     "stock_concentration_ng_ul": c.get("stock_conc", 100.0),
                     "replicates": params.get("replicates", 4),
+                    "plasmid_size_bp": c.get("plasmid_size_bp"),
                 })
 
             # Calculate volumes
             n_reactions = params.get("total_reactions", len(constructs) * params.get("replicates", 4))
             reaction_volume = params.get("reaction_volume_ul", 50.0)
-            dna_mass = reaction_volume / 10.0  # DNA_MASS_TO_VOLUME_FACTOR
+            dna_mass = reaction_volume / DNA_MASS_TO_VOLUME_FACTOR
 
-            from app.calculator import calculate_master_mix, generate_protocol, format_protocol_text
+            # Build ligand config if enabled
+            ligand_cfg = None
+            if params.get("ligand_enabled"):
+                ligand_cfg = LigandConfig(
+                    enabled=True,
+                    stock_concentration_uM=params.get("ligand_stock_uM") or 1000.0,
+                    final_concentration_uM=params.get("ligand_final_uM") or 100.0,
+                )
 
             mm = calculate_master_mix(
                 n_reactions=n_reactions,
@@ -2190,6 +2200,8 @@ def register_calculator_callbacks(app):
                 negative_dye_count=params.get("negative_dfhbi_count", 0),
                 include_dye=params.get("include_dfhbi", True),
                 reaction_volume_ul=reaction_volume,
+                target_dna_nM=TARGET_DNA_CONCENTRATION_NM,
+                ligand_config=ligand_cfg,
             )
 
             # Generate protocol text
