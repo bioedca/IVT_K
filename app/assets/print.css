@@ -50,4 +50,48 @@
         padding-left: 0 !important;
         padding-right: 0 !important;
     }
+
+    /* === Plate Layout Print Styles === */
+
+    /* Hide plate layout elements that shouldn't print */
+    .plate-no-print,
+    #plate-templates-assignment-container,
+    #plate-templates-controls-container,
+    #plate-templates-zoom-container,
+    #plate-templates-helpers-container,
+    #plate-templates-import-upload {
+        display: none !important;
+    }
+
+    /* Grid takes full width when sidebar is hidden */
+    #plate-templates-grid-container {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Make plate grid columns span full width (scoped to plate templates) */
+    #plate-templates-grid-container .mantine-Grid-col {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Bold text for B&W readability */
+    .plate-well-label {
+        font-weight: 700 !important;
+        color: #000 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Ensure well borders are visible in B&W */
+    .plate-well {
+        border: 1px solid #333 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Reset grid zoom transform for printing */
+    #layout-editor-grid-container {
+        transform: none !important;
+    }
 }
