@@ -78,6 +78,12 @@ def create_plate_templates_layout(
             # Notification container for save/publish feedback
             html.Div(id="plate-templates-notification-container"),
 
+            # Hidden dummy for print callback
+            html.Div(id="plate-templates-print-dummy", style={"display": "none"}),
+
+            # Store for checkerboard override state (toggle rendered in summary panel)
+            dcc.Store(id="layout-checkerboard-override-store", data=False),
+
             # Header
             html.Div(id="plate-templates-header-container"),
 
@@ -221,6 +227,14 @@ def create_plate_templates_header(
                     ),
                     status_badge,
                     format_badge,
+                    dmc.Button(
+                        "Print Layout",
+                        id="plate-templates-print-btn",
+                        variant="light",
+                        color="gray",
+                        leftSection=DashIconify(icon="mdi:printer", width=20),
+                        className="plate-no-print",
+                    ),
                     dmc.Button(
                         "Save Draft",
                         id="plate-templates-save-btn",
@@ -497,7 +511,7 @@ def create_layout_summary_panel(
                 )
             )
 
-    # Checkerboard warning with redistribute button
+    # Checkerboard warning with redistribute button and advanced override
     if checkerboard_warning:
         content.append(dmc.Divider())
         content.append(
@@ -517,6 +531,15 @@ def create_layout_summary_panel(
                         size="xs",
                         color="orange",
                         leftSection=DashIconify(icon="mdi:shuffle-variant", width=16),
+                    ),
+                    dmc.Divider(label="Advanced", labelPosition="center", size="xs"),
+                    dmc.Switch(
+                        label="Override checkerboard constraint",
+                        description="Allow publishing without checkerboard compliance",
+                        id="layout-checkerboard-override-switch",
+                        checked=False,
+                        size="xs",
+                        color="red",
                     ),
                 ], gap="xs"),
                 color="orange",

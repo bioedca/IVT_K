@@ -301,6 +301,7 @@ def register_layout_assignment_callbacks(app):
             Input("plate-templates-assignments-store", "data"),
             Input("layout-editor-checkerboard-toggle", "checked"),
             Input("layout-editor-pattern-selector", "value"),
+            Input("layout-checkerboard-override-store", "data"),
         ],
         [
             State("plate-templates-project-store", "data"),
@@ -308,7 +309,7 @@ def register_layout_assignment_callbacks(app):
         ],
         prevent_initial_call=True,
     )
-    def update_publish_button_state(assignments, checkerboard_enabled, pattern, project_store, constructs_store):
+    def update_publish_button_state(assignments, checkerboard_enabled, pattern, checkerboard_override, project_store, constructs_store):
         """Disable publish button when layout has validation issues or checkerboard violations."""
         if not assignments:
             return True  # Disable if no assignments
@@ -354,7 +355,9 @@ def register_layout_assignment_callbacks(app):
             is_checkerboard_valid, invalid_wells = validate_checkerboard_selection(
                 assigned_positions, plate_format, pattern
             )
-            summary_data["checkerboard_violations"] = invalid_wells
+            # If override is active, don't count checkerboard as violations
+            if not checkerboard_override:
+                summary_data["checkerboard_violations"] = invalid_wells
 
         # Run validation
         is_valid, issues = get_layout_validation_status(summary_data)
@@ -874,6 +877,34 @@ def register_layout_assignment_callbacks(app):
                             }
 
         return assignments, plan_data
+
+    # Sync checkerboard override switch → store
+    @app.callback(
+        Output("layout-checkerboard-override-store", "data"),
+        Input("layout-checkerboard-override-switch", "checked"),
+        prevent_initial_call=True,
+    )
+    def sync_checkerboard_override(checked):
+        """Sync the checkerboard override switch to the store."""
+        return bool(checked)
+
+    # Clientside callback: print plate layout
+    app.clientside_callback(
+        """
+        function(n) {
+            if (n) {
+                var prev = document.title;
+                document.title = "Plate Layout";
+                window.print();
+                document.title = prev;
+            }
+            return window.dash_clientside.no_update;
+        }
+        """,
+        Output("plate-templates-print-dummy", "children"),
+        Input("plate-templates-print-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
 
     # Clientside callback: zoom slider controls grid container scale
     app.clientside_callback(

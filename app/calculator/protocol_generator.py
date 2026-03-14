@@ -616,18 +616,46 @@ def generate_protocol(
                     notes="-Template negative control. Place tube on ice.",
                 ))
             elif addition.is_negative_control and addition.negative_control_type == 'no_dye':
-                # -DFHBI control: DNA + Water (adjustment + replaced dye volume)
+                # -DFHBI control: separate water and DNA steps (like normal constructs)
                 water_to_add = addition.water_adjustment_ul + dye_vol_per_tube
-                total_vol = addition.dna_volume_ul + water_to_add
+
+                # Step 1: Add water (adjustment + dye replacement)
+                if water_to_add > 0.01:
+                    steps.append(ProtocolStep(
+                        step_number=(step_num := step_num + 1),
+                        section="DNA Addition",
+                        action="Add water adjustment",
+                        volume_ul=water_to_add,
+                        component="Nuclease-free water",
+                        destination=f"Tube: {tube_label}",
+                        notes=f"-DFHBI control. Includes {dye_vol_per_tube:.1f} µL to replace dye. Add water before DNA.",
+                    ))
+
+                # Determine source construct name for -DFHBI controls
+                source_name = getattr(addition, 'source_construct_name', None) or addition.construct_name
+
+                # Step 2: Add DNA (reporter-only)
+                if addition.stock_concentration_nM is not None:
+                    comp_text = (
+                        f"{source_name} "
+                        f"({addition.stock_concentration_ng_ul:.0f} ng/µL = "
+                        f"{addition.stock_concentration_nM:.1f} nM)"
+                    )
+                else:
+                    comp_text = f"{source_name} ({addition.stock_concentration_ng_ul:.0f} ng/µL)"
+
+                notes_text = f"-DFHBI control (reporter-only DNA: {source_name}). Place tube on ice."
+                if getattr(addition, 'achieved_nM', None) is not None:
+                    notes_text = f"Achieved: {addition.achieved_nM:.1f} nM. {notes_text}"
 
                 steps.append(ProtocolStep(
                     step_number=(step_num := step_num + 1),
                     section="DNA Addition",
-                    action="Add DNA + water",
-                    volume_ul=total_vol,
-                    component=f"DNA ({addition.dna_volume_ul:.1f} µL) + water ({water_to_add:.1f} µL)",
+                    action=f"Add {source_name} DNA",
+                    volume_ul=addition.dna_volume_ul,
+                    component=comp_text,
                     destination=f"Tube: {tube_label}",
-                    notes=f"-DFHBI negative control. Includes {dye_vol_per_tube:.1f} µL water to replace dye. Place tube on ice.",
+                    notes=notes_text,
                 ))
             else:
                 # Normal construct
