@@ -228,6 +228,59 @@ class TestFoldChangeServiceComputation:
         result = FoldChangeService.compute_plate_fold_changes(plate.id)
         assert result == []
 
+    def test_compute_plate_fold_changes_deletes_orphans_after_exclusion(self, db_session):
+        """Marking a well excluded after FCs are written deletes the orphaned rows
+        on the next compute_plate_fold_changes call.
+
+        Regression test for the bug described in fc_exclusion_no_effect_explained.md:
+        previously, FoldChange rows referencing newly-excluded wells survived the
+        recompute (the loop only generated pairs from non-excluded wells, so it
+        never visited — or deleted — the stale rows).
+        """
+        project = _make_project()
+        wt, [mut], _ = _make_constructs(project, n_mutants=1)
+        _, plate = _make_plate(project)
+
+        wt_well, _ = _add_well(plate, wt, "A1", fmax=500.0)
+        _add_well(plate, mut, "B1", fmax=1000.0)
+        _add_well(plate, mut, "B2", fmax=1050.0)
+        db.session.commit()
+
+        # First compute creates 2 FCs (1 wt x 2 mutants)
+        first = FoldChangeService.compute_plate_fold_changes(plate.id)
+        assert len(first) == 2
+        assert FoldChange.query.count() == 2
+
+        # Now exclude the WT well — its FCs should be considered orphaned.
+        wt_well.exclude_from_fc = True
+        db.session.commit()
+
+        # Recompute. Without the fix, the 2 stale rows would linger; with it,
+        # they are deleted up front and no new pairs replace them (no other WT).
+        result = FoldChangeService.compute_plate_fold_changes(plate.id, overwrite=True)
+        assert result == []
+        assert FoldChange.query.count() == 0
+
+    def test_compute_plate_fold_changes_deletes_orphans_is_excluded_flag(self, db_session):
+        """Same orphan-deletion behavior triggers off the is_excluded flag too."""
+        project = _make_project()
+        wt, [mut], _ = _make_constructs(project, n_mutants=1)
+        _, plate = _make_plate(project)
+
+        _add_well(plate, wt, "A1", fmax=500.0)
+        mut_well, _ = _add_well(plate, mut, "B1", fmax=1000.0)
+        db.session.commit()
+
+        FoldChangeService.compute_plate_fold_changes(plate.id)
+        assert FoldChange.query.count() == 1
+
+        mut_well.is_excluded = True
+        db.session.commit()
+
+        result = FoldChangeService.compute_plate_fold_changes(plate.id, overwrite=True)
+        assert result == []
+        assert FoldChange.query.count() == 0
+
     def test_compute_plate_fold_changes_with_ligand(self, db_session):
         """Ligand conditions create within-condition FCs per condition."""
         project = _make_project()
