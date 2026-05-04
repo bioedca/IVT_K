@@ -11,6 +11,8 @@ import logging
 from typing import Optional, List, Dict, Tuple
 from datetime import datetime, timezone
 
+from sqlalchemy import or_
+
 from app.extensions import db
 from app.models import Construct
 from app.models.experiment import Plate, Well, FitStatus
@@ -56,6 +58,14 @@ class FoldChangeService:
         plate = Plate.query.get(plate_id)
         if not plate:
             raise ComparisonError(f"Plate {plate_id} not found")
+
+        # Drop FoldChange rows whose test or control well on this plate is now excluded.
+        # Why: the iteration loop below only generates pairs from non-excluded wells,
+        # so it cannot reach (or overwrite) FCs whose underlying wells were excluded
+        # after the row was first written. Without this, marking a well excluded leaves
+        # stale FCs in the DB that downstream analyses (HierarchicalService, badge counts)
+        # still pull. See fc_exclusion_no_effect_explained.md.
+        cls._delete_orphan_fold_changes(plate_id)
 
         # Get all wells with successful fits (excluding manually excluded and FC-excluded wells)
         wells = Well.query.filter(
@@ -200,6 +210,44 @@ class FoldChangeService:
 
         db.session.commit()
         return fold_changes
+
+    @classmethod
+    def _delete_orphan_fold_changes(cls, plate_id: int) -> int:
+        """
+        Delete FoldChange rows on this plate whose test or control well is currently
+        marked is_excluded=True or exclude_from_fc=True.
+
+        Called from compute_plate_fold_changes so that excluding a well after FCs
+        have been written actually removes the affected pairs from the database.
+
+        Returns:
+            Number of rows deleted.
+        """
+        excluded_well_ids = [
+            row.id for row in db.session.query(Well.id).filter(
+                Well.plate_id == plate_id,
+                or_(Well.is_excluded == True, Well.exclude_from_fc == True),
+            ).all()
+        ]
+
+        if not excluded_well_ids:
+            return 0
+
+        deleted = FoldChange.query.filter(
+            or_(
+                FoldChange.test_well_id.in_(excluded_well_ids),
+                FoldChange.control_well_id.in_(excluded_well_ids),
+            )
+        ).delete(synchronize_session=False)
+
+        if deleted:
+            logger.info(
+                "Deleted %d orphan FoldChange rows on plate %d "
+                "referencing %d now-excluded well(s)",
+                deleted, plate_id, len(excluded_well_ids),
+            )
+
+        return deleted
 
     @classmethod
     def _compute_well_pair_fc(
