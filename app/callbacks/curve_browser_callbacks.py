@@ -344,7 +344,8 @@ def register_curve_browser_callbacks(app):
             except ValueError:
                 well_id = all_panel_wells[0] if all_panel_wells else None
         elif all_panel_wells and not well_id:
-            well_id = all_panel_wells[0]
+            # Bug C3: don't auto-select the first well; let the user pick.
+            well_id = None
 
         if not all_panel_wells:
             return None, create_empty_figure(dark_mode=dark_mode), create_empty_plot_message(), None, ""
@@ -429,11 +430,9 @@ def register_curve_browser_callbacks(app):
                 dark_mode=dark_mode,
             )
 
-            # Get current well details
+            # Get current well details. Bug C3: don't fall back to the first
+            # well when none is selected — show the empty placeholder instead.
             well = Well.query.get(well_id) if well_id else None
-            if not well and all_panel_wells:
-                well = Well.query.get(all_panel_wells[0])
-                well_id = all_panel_wells[0] if well else None
 
             if not well:
                 return None, fig, create_empty_plot_message(), None, ""

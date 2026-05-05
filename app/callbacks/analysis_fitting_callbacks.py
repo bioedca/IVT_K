@@ -482,9 +482,10 @@ def register_analysis_fitting_callbacks(app):
         State("fitting-task-id-store", "data"),
         State("analysis-project-store", "data"),
         State("color-scheme-store", "data"),
+        State("fitting-selected-plates-store", "data"),
         prevent_initial_call=True,
     )
-    def poll_fitting_progress(n_intervals, task_id, project_id, scheme):
+    def poll_fitting_progress(n_intervals, task_id, project_id, scheme, selected_plates):
         """Poll fitting task progress and update UI."""
         if not task_id:
             raise PreventUpdate
@@ -515,7 +516,9 @@ def register_analysis_fitting_callbacks(app):
                     "skipped": int(skipped_count) if skipped_count.isdigit() else 0,
                 }
                 dark_mode = (scheme == "dark")
-                # Load fit results and move to step 3 - pass project_id to render content
+                # Load fit results and move to step 3 - filter to plates the user
+                # actually selected for fitting so the post-fit view scope matches
+                # what was fitted (Bug A: previously defaulted to all plates).
                 return (
                     100,
                     "Fitting complete!",
@@ -523,7 +526,12 @@ def register_analysis_fitting_callbacks(app):
                     success_count,
                     failed_count,
                     skipped_count,
-                    create_step3_fit_results(fit_summary, project_id=project_id, dark_mode=dark_mode),
+                    create_step3_fit_results(
+                        fit_summary,
+                        project_id=project_id,
+                        plate_ids=selected_plates or None,
+                        dark_mode=dark_mode,
+                    ),
                     2,  # Step 3
                     True,  # Disable polling
                     "Step 3: Review Results",
@@ -780,6 +788,19 @@ def register_analysis_fitting_callbacks(app):
                 ExperimentalSession.project_id == project_id
             ).order_by(ExperimentalSession.date.desc(), Plate.plate_number).all()
 
+            # Bug B: when no selection exists yet, default to plates from the
+            # most recent session rather than all plates.
+            latest_session_plate_ids: set[int] = set()
+            if not current_plate_selection:
+                latest_session = (
+                    ExperimentalSession.query
+                    .filter_by(project_id=project_id)
+                    .order_by(ExperimentalSession.date.desc())
+                    .first()
+                )
+                if latest_session is not None:
+                    latest_session_plate_ids = {p.id for p in latest_session.plates}
+
             plate_items = []
             selected_plate_ids = []  # Track plate IDs for store initialization
             for plate in plates:
@@ -806,9 +827,13 @@ def register_analysis_fitting_callbacks(app):
                     progress_pct = (plate_fits / plate_total * 100) if plate_total > 0 else 0
                     session_label = plate.session.batch_identifier if plate.session else "Unknown"
 
-                    # Determine if this plate should be checked based on current selection
-                    # If no current selection, default to all selected
-                    is_checked = plate.id in current_plate_selection if current_plate_selection else True
+                    # Determine if this plate should be checked. With an existing
+                    # selection, preserve it; otherwise default to plates from
+                    # the latest session only (Bug B).
+                    if current_plate_selection:
+                        is_checked = plate.id in current_plate_selection
+                    else:
+                        is_checked = plate.id in latest_session_plate_ids
                     if is_checked:
                         selected_plate_ids.append(plate.id)  # Track for store initialization
 
@@ -1108,26 +1133,70 @@ def register_analysis_fitting_callbacks(app):
     # R-squared Threshold Filtering Callbacks
     # ================================================================
 
+    def _build_thresholds_from_states(
+        r2_threshold,
+        plateau_threshold,
+        fmax_se_threshold,
+        check_outliers,
+        check_shape,
+        action_value,
+    ):
+        """Build a ReliabilityThresholds dataclass from UI state values."""
+        from app.analysis.fit_reliability import ReliabilityThresholds
+
+        thresholds = ReliabilityThresholds()
+        if r2_threshold is not None:
+            thresholds.r2_threshold = float(r2_threshold)
+        if plateau_threshold is not None:
+            thresholds.pct_plateau_bad = float(plateau_threshold)
+        if fmax_se_threshold is not None:
+            thresholds.f_max_se_pct_bad = float(fmax_se_threshold)
+        thresholds.check_outliers = bool(check_outliers) if check_outliers is not None else True
+        thresholds.check_shape = bool(check_shape) if check_shape is not None else True
+        thresholds.exclude_weak = action_value == "exclude_bad_weak"
+        return thresholds
+
     @app.callback(
         Output("r2-filter-preview-badge", "children"),
         Output("r2-filter-preview-badge", "color"),
         Input("r2-threshold-slider", "value"),
+        Input("reliability-plateau-slider", "value"),
+        Input("reliability-fmax-se-slider", "value"),
+        Input("reliability-outlier-toggle", "checked"),
+        Input("reliability-shape-toggle", "checked"),
+        Input("reliability-action-radio", "value"),
         State("analysis-project-store", "data"),
         prevent_initial_call=True,
     )
-    def update_r2_threshold_preview(threshold, project_id):
-        """Update the preview badge showing how many wells would be excluded."""
-        if not project_id or threshold is None:
+    def update_r2_threshold_preview(
+        r2_threshold,
+        plateau_threshold,
+        fmax_se_threshold,
+        check_outliers,
+        check_shape,
+        action_value,
+        project_id,
+    ):
+        """Update the preview badge showing how many wells would be flagged."""
+        if not project_id:
             raise PreventUpdate
-
         try:
             from app.services.fitting_service import FittingService
-            preview = FittingService.get_r2_exclusion_preview(project_id, threshold)
-            count = preview["below_threshold"]
+
+            thresholds = _build_thresholds_from_states(
+                r2_threshold,
+                plateau_threshold,
+                fmax_se_threshold,
+                check_outliers,
+                check_shape,
+                action_value,
+            )
+            preview = FittingService.get_reliability_preview(project_id, thresholds)
+            count = preview.get("below_threshold", 0)
             color = "orange" if count > 0 else "green"
-            text = f"{count} wells below threshold"
-            return text, color
+            return f"{count} wells flagged", color
         except Exception:
+            logger.exception("Failed to compute reliability preview")
             return "Error computing preview", "red"
 
     @app.callback(
@@ -1135,14 +1204,31 @@ def register_analysis_fitting_callbacks(app):
         Output("r2-threshold-store", "data"),
         Input("r2-apply-threshold-btn", "n_clicks"),
         State("r2-threshold-slider", "value"),
+        State("reliability-plateau-slider", "value"),
+        State("reliability-fmax-se-slider", "value"),
+        State("reliability-outlier-toggle", "checked"),
+        State("reliability-shape-toggle", "checked"),
+        State("reliability-action-radio", "value"),
         State("analysis-project-store", "data"),
         State("fitting-selected-wells-store", "data"),
         State("explore-selected-plates-store", "data"),
         State("color-scheme-store", "data"),
         prevent_initial_call=True,
     )
-    def apply_r2_threshold(n_clicks, threshold, project_id, selected_wells, plate_ids, scheme):
-        """Apply R-squared threshold and refresh Step 3 content."""
+    def apply_r2_threshold(
+        n_clicks,
+        r2_threshold,
+        plateau_threshold,
+        fmax_se_threshold,
+        check_outliers,
+        check_shape,
+        action_value,
+        project_id,
+        selected_wells,
+        plate_ids,
+        scheme,
+    ):
+        """Apply reliability filter and refresh Step 3 content."""
         if not n_clicks or not project_id:
             raise PreventUpdate
 
@@ -1150,10 +1236,21 @@ def register_analysis_fitting_callbacks(app):
             from app.services.fitting_service import FittingService
             from app.layouts.analysis_results import create_step3_fit_results
 
-            # Apply the threshold
-            FittingService.apply_r2_exclusion(project_id, threshold)
+            thresholds = _build_thresholds_from_states(
+                r2_threshold,
+                plateau_threshold,
+                fmax_se_threshold,
+                check_outliers,
+                check_shape,
+                action_value,
+            )
 
-            # Get fit summary for refreshing the view
+            if action_value == "warn":
+                # Don't write any exclusions; just refresh the view to surface badges.
+                FittingService.clear_reliability_exclusions(project_id)
+            else:
+                FittingService.apply_reliability_filter(project_id, thresholds)
+
             status = FittingService.get_fc_exclusion_status(project_id)
             fit_summary = {
                 "successful": status["included_in_fc"],
@@ -1161,7 +1258,6 @@ def register_analysis_fitting_callbacks(app):
                 "skipped": status["excluded_from_fc"],
             }
 
-            # Regenerate Step 3 content
             dark_mode = (scheme == "dark")
             step3_content = create_step3_fit_results(
                 fit_summary=fit_summary,
@@ -1171,12 +1267,47 @@ def register_analysis_fitting_callbacks(app):
                 dark_mode=dark_mode,
             )
 
-            return step3_content, threshold
+            # Persist a snapshot of all threshold values so a future page-load
+            # can restore the user's slider state. The store is opportunistic;
+            # the panel still falls back to constants.py defaults if missing.
+            store_payload = {
+                "r2_threshold": r2_threshold,
+                "plateau_threshold": plateau_threshold,
+                "fmax_se_threshold": fmax_se_threshold,
+                "check_outliers": check_outliers,
+                "check_shape": check_shape,
+                "action": action_value,
+            }
+            return step3_content, store_payload
 
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Error applying reliability filter")
+            raise PreventUpdate from None
+
+    @app.callback(
+        Output("r2-threshold-slider", "value", allow_duplicate=True),
+        Output("reliability-plateau-slider", "value", allow_duplicate=True),
+        Output("reliability-fmax-se-slider", "value", allow_duplicate=True),
+        Output("reliability-outlier-toggle", "checked", allow_duplicate=True),
+        Output("reliability-shape-toggle", "checked", allow_duplicate=True),
+        Output("reliability-action-radio", "value", allow_duplicate=True),
+        Input("reliability-reset-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def reset_reliability_thresholds(n_clicks):
+        """Reset reliability filter sliders / toggles to defaults."""
+        if not n_clicks:
             raise PreventUpdate
+        from app.analysis import constants as _const
+
+        return (
+            _const.DEFAULT_RELIABILITY_R2_THRESHOLD,
+            _const.PCT_PLATEAU_BAD,
+            _const.F_MAX_SE_PCT_BAD,
+            True,    # check_outliers
+            False,   # check_shape (DW autocorrelation gate is off by default)
+            "exclude_bad",
+        )
 
     @app.callback(
         Output("fitting-step-content", "children", allow_duplicate=True),
@@ -1246,6 +1377,14 @@ def register_analysis_fitting_callbacks(app):
         if not checked_values or not checkbox_ids or not project_id:
             raise PreventUpdate
 
+        # Bug D mitigation #3: only proceed when exactly one checkbox triggered
+        # this callback. Prevents spurious re-fires after a Step 3 re-render
+        # remounts every checkbox (each remount can re-fire the callback with
+        # the *previous* well's checked state).
+        triggered_props = getattr(ctx, "triggered_prop_ids", None)
+        if triggered_props is not None and len(triggered_props) != 1:
+            raise PreventUpdate
+
         # Find which checkbox triggered the callback
         triggered = ctx.triggered_id
         if not triggered or not isinstance(triggered, dict):
@@ -1266,6 +1405,17 @@ def register_analysis_fitting_callbacks(app):
         try:
             from app.services.fitting_service import FittingService
             from app.layouts.analysis_results import create_step3_fit_results
+            from app.models import Well as _Well
+
+            # Bug D mitigation #1: idempotency guard. Short-circuit if the DB
+            # already reflects the requested state — stops redundant re-fires
+            # from re-asserting state on a different well than the user clicked.
+            current_well = _Well.query.get(well_id)
+            if current_well is None:
+                raise PreventUpdate
+            currently_included = not bool(current_well.exclude_from_fc)
+            if currently_included == bool(include):
+                raise PreventUpdate
 
             # Toggle the well's FC inclusion
             FittingService.set_well_fc_inclusion(well_id, include)

@@ -6,6 +6,7 @@ from dash_iconify import DashIconify
 import plotly.graph_objects as go
 
 from app.theme import apply_plotly_theme
+from app.analysis.fit_reliability import reasons_to_label
 from app.layouts.analysis_results.components import _format_with_se
 
 
@@ -165,9 +166,18 @@ def create_fit_params_display(
     )
 
 
+_RELIABILITY_BADGE_COLORS = {
+    "GOOD": "green",
+    "OK": "gray",
+    "WEAK": "orange",
+    "BAD": "red",
+}
+
+
 def build_fit_results_table(
     fits: List,
     selected_well_ids: List[int],
+    reliability_results: Optional[Dict[int, Any]] = None,
 ) -> Union[dmc.Table, dmc.Text]:
     """
     Build the fit results table with clickable rows, selection highlighting, and FC inclusion checkbox.
@@ -175,6 +185,9 @@ def build_fit_results_table(
     Args:
         fits: List of FitResult model instances
         selected_well_ids: List of currently selected well IDs
+        reliability_results: Optional dict mapping fit.id -> ReliabilityResult.
+            When provided, adds a colored Reliability badge column with a tooltip
+            listing the failing criteria.
 
     Returns:
         dmc.Table component with clickable rows and FC inclusion checkboxes
@@ -182,6 +195,7 @@ def build_fit_results_table(
     if not fits:
         return dmc.Text("No fit results available", c="dimmed", ta="center")
 
+    reliability_results = reliability_results or {}
     table_rows = []
 
     for fit in fits:
@@ -204,6 +218,20 @@ def build_fit_results_table(
 
         # Text style for excluded wells
         text_style = {"textDecoration": "line-through"} if not is_included_in_fc else {}
+
+        rel_result = reliability_results.get(getattr(fit, "id", None))
+        if rel_result is not None:
+            flag_value = getattr(rel_result.flag, "value", str(rel_result.flag))
+            badge_color = _RELIABILITY_BADGE_COLORS.get(flag_value, "gray")
+            tooltip_label = reasons_to_label(rel_result.reasons)
+            reliability_cell = html.Td(
+                dmc.Tooltip(
+                    label=tooltip_label,
+                    children=dmc.Badge(flag_value, color=badge_color, size="sm", variant="light"),
+                ),
+            )
+        else:
+            reliability_cell = html.Td(dmc.Badge("\u2014", color="gray", size="sm", variant="light"))
 
         # Clickable row with pattern-matching ID
         table_rows.append(
@@ -241,6 +269,7 @@ def build_fit_results_table(
                     html.Td(
                         dmc.Badge(f"{r2:.3f}", color=r2_color, size="sm", variant="light"),
                     ),
+                    reliability_cell,
                 ],
                 id={"type": "fitting-result-row", "index": well.id},
                 style=row_style,
@@ -262,6 +291,7 @@ def build_fit_results_table(
                     html.Th("F_max"),
                     html.Th("t_lag (min)"),
                     html.Th("R\u00b2"),
+                    html.Th("Reliability"),
                 ])
             ),
             html.Tbody(table_rows),

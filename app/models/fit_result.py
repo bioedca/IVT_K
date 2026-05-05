@@ -152,6 +152,11 @@ class FitResultArchive(db.Model, FitResultMixin):
             # Quality (from FitResultMixin)
             converged=fit_result.converged,
             residual_normality_pvalue=fit_result.residual_normality_pvalue,
+            residual_autocorr_dw=fit_result.residual_autocorr_dw,
+            # Reliability metrics (from FitResultMixin)
+            run_length_min=fit_result.run_length_min,
+            pct_plateau_reached=fit_result.pct_plateau_reached,
+            mean_signal=fit_result.mean_signal,
             # Timestamps
             original_fitted_at=fit_result.fitted_at or datetime.now(timezone.utc),
             superseded_at=datetime.now(timezone.utc),
