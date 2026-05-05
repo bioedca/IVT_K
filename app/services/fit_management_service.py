@@ -27,6 +27,20 @@ from app.services.fit_computation_service import FittingError
 logger = logging.getLogger(__name__)
 
 
+def _reliability_group_key(fit) -> tuple:
+    """Group key for replicate-group MAD outlier detection.
+
+    Wells sharing (construct_id, ligand_condition, plate_id) are treated as a
+    replicate set. Used by both apply_reliability_filter and
+    get_reliability_preview.
+    """
+    well = fit.well
+    construct_id = well.construct_id if well else None
+    ligand = getattr(well, "ligand_condition", None) if well else None
+    plate_id = well.plate_id if well else None
+    return (construct_id, ligand, plate_id)
+
+
 class FitManagementService:
     """
     Service for managing fit results.
@@ -521,6 +535,8 @@ class FitManagementService:
         """
         Mark wells with R-squared below threshold as excluded from FC calculation.
 
+        Thin wrapper over apply_reliability_filter for back-compat.
+
         Args:
             project_id: Project ID
             threshold: R-squared threshold (wells below this will be flagged)
@@ -528,51 +544,174 @@ class FitManagementService:
         Returns:
             Dict with count of wells excluded
         """
+        from app.analysis.fit_reliability import ReliabilityThresholds
+
+        thresholds = ReliabilityThresholds(
+            r2_threshold=threshold,
+            check_outliers=False,
+            check_shape=False,
+            # Disable plateau / fmax-SE gating: this wrapper is R²-only.
+            pct_plateau_bad=0.0,
+            pct_plateau_weak=0.0,
+            pct_plateau_good=0.0,
+            f_max_se_pct_bad=float("inf"),
+            f_max_se_pct_weak=float("inf"),
+            f_max_se_pct_good=float("inf"),
+        )
+        result = cls.apply_reliability_filter(project_id, thresholds)
+        return {
+            "excluded_count": result["excluded_count"],
+            "excluded_well_ids": result["excluded_well_ids"],
+            "threshold": threshold,
+        }
+
+    @classmethod
+    def get_reliability_preview(
+        cls,
+        project_id: int,
+        thresholds: "ReliabilityThresholds",
+    ) -> dict[str, Any]:
+        """Preview which wells would be excluded under current thresholds.
+
+        Returns counts and per-reason breakdown without writing to the DB.
+        """
+        from app.analysis.fit_reliability import (
+            ReliabilityFlag,
+            FilterReason,
+            evaluate_batch,
+        )
         from app.models.plate_layout import WellType
 
-        # First, reset all exclude_from_fc flags for this project
+        fits = FitResultModel.query.join(Well).join(Plate).join(
+            Plate.session
+        ).filter(
+            Plate.session.has(project_id=project_id),
+            FitResultModel.converged == True,  # noqa: E712
+            Well.well_type == WellType.SAMPLE,
+            Well.is_excluded == False,  # noqa: E712
+        ).all()
+
+        if not fits:
+            return {
+                "total_wells": 0,
+                "below_threshold": 0,
+                "well_ids": [],
+                "by_reason": {},
+                "by_flag": {flag.value: 0 for flag in ReliabilityFlag},
+            }
+
+        results = evaluate_batch(
+            fits, thresholds=thresholds, group_key=_reliability_group_key
+        )
+
+        excluded_ids: list[int] = []
+        by_reason: dict[str, int] = {}
+        by_flag: dict[str, int] = {flag.value: 0 for flag in ReliabilityFlag}
+
+        for fit in fits:
+            res = results[fit.id]
+            by_flag[res.flag.value] += 1
+            if res.is_excluded_by(thresholds):
+                excluded_ids.append(fit.well_id)
+                for reason in res.reasons:
+                    if reason is FilterReason.OK:
+                        continue
+                    by_reason[reason.value] = by_reason.get(reason.value, 0) + 1
+
+        return {
+            "total_wells": len(fits),
+            "below_threshold": len(excluded_ids),
+            "well_ids": excluded_ids,
+            "by_reason": by_reason,
+            "by_flag": by_flag,
+        }
+
+    @classmethod
+    def apply_reliability_filter(
+        cls,
+        project_id: int,
+        thresholds: "ReliabilityThresholds",
+    ) -> dict[str, Any]:
+        """Mark wells failing the reliability evaluator as excluded from FC.
+
+        Resets all SAMPLE wells in the project to included, then re-applies the
+        filter. Action is determined by ``thresholds.exclude_weak``: if True,
+        WEAK fits are also excluded; otherwise only BAD fits are excluded.
+        """
+        from app.analysis.fit_reliability import (
+            ReliabilityFlag,
+            FilterReason,
+            evaluate_batch,
+        )
+        from app.models.plate_layout import WellType
+
         wells_to_reset = Well.query.join(Plate).join(
             Plate.session
         ).filter(
             Plate.session.has(project_id=project_id),
             Well.well_type == WellType.SAMPLE,
         ).all()
-
         for well in wells_to_reset:
             well.exclude_from_fc = False
 
-        # Get all successful fits for SAMPLE wells
         fits = FitResultModel.query.join(Well).join(Plate).join(
             Plate.session
         ).filter(
             Plate.session.has(project_id=project_id),
-            FitResultModel.converged == True,
+            FitResultModel.converged == True,  # noqa: E712
             Well.well_type == WellType.SAMPLE,
-            Well.is_excluded == False,
+            Well.is_excluded == False,  # noqa: E712
         ).all()
 
-        excluded_count = 0
-        excluded_well_ids = []
+        if not fits:
+            db.session.commit()
+            return {
+                "excluded_count": 0,
+                "excluded_well_ids": [],
+                "by_reason": {},
+                "by_flag": {flag.value: 0 for flag in ReliabilityFlag},
+            }
+
+        results = evaluate_batch(
+            fits, thresholds=thresholds, group_key=_reliability_group_key
+        )
+
+        excluded_ids: list[int] = []
+        by_reason: dict[str, int] = {}
+        by_flag: dict[str, int] = {flag.value: 0 for flag in ReliabilityFlag}
 
         for fit in fits:
-            r2 = fit.r_squared or 0
-            if r2 < threshold:
+            res = results[fit.id]
+            by_flag[res.flag.value] += 1
+            if res.is_excluded_by(thresholds):
                 fit.well.exclude_from_fc = True
-                excluded_count += 1
-                excluded_well_ids.append(fit.well_id)
+                excluded_ids.append(fit.well_id)
+                for reason in res.reasons:
+                    if reason is FilterReason.OK:
+                        continue
+                    by_reason[reason.value] = by_reason.get(reason.value, 0) + 1
 
         db.session.commit()
 
         logger.info(
-            f"Applied R² threshold {threshold} to project {project_id}: "
-            f"{excluded_count} wells excluded from FC calculation"
+            "Applied reliability filter to project %s: %d wells excluded "
+            "(by_reason=%s)",
+            project_id,
+            len(excluded_ids),
+            by_reason,
         )
 
         return {
-            "excluded_count": excluded_count,
-            "excluded_well_ids": excluded_well_ids,
-            "threshold": threshold,
+            "excluded_count": len(excluded_ids),
+            "excluded_well_ids": excluded_ids,
+            "by_reason": by_reason,
+            "by_flag": by_flag,
         }
+
+    @classmethod
+    def clear_reliability_exclusions(cls, project_id: int) -> int:
+        """Alias for clear_r2_exclusions; retained for naming clarity."""
+        return cls.clear_r2_exclusions(project_id)
 
     @classmethod
     def clear_r2_exclusions(cls, project_id: int) -> int:

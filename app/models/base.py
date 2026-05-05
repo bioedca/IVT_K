@@ -35,6 +35,17 @@ class FitResultMixin:
     # Quality flags
     converged = Column(Boolean, default=False)
     residual_normality_pvalue = Column(Float, nullable=True)
+    # Durbin-Watson statistic for residual lag-1 autocorrelation. Range [0, 4]
+    # with 2 = no autocorrelation. Used by the reliability filter as a
+    # scale-free shape diagnostic; preferred over Shapiro-Wilk normality and
+    # Ljung-Box p-values, which both saturate to extreme values on long
+    # fluorescence traces and stop discriminating fit quality.
+    residual_autocorr_dw = Column(Float, nullable=True)
+
+    # Fit reliability metrics (used by ReliabilityFilter UI)
+    run_length_min = Column(Float, nullable=True)
+    pct_plateau_reached = Column(Float, nullable=True)
+    mean_signal = Column(Float, nullable=True)
 
     @property
     def is_good_fit(self) -> bool:

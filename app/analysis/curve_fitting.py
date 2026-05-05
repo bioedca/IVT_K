@@ -28,6 +28,35 @@ from app.analysis.constants import (
 logger = logging.getLogger(__name__)
 
 
+def compute_durbin_watson(residuals: np.ndarray) -> Optional[float]:
+    """Durbin-Watson statistic for residual lag-1 autocorrelation.
+
+    The DW statistic is bounded in [0, 4]:
+      * DW ≈ 2 — residuals are uncorrelated (clean fit)
+      * DW < 1.5 — substantial positive autocorrelation (model bias)
+      * DW > 2.5 — substantial negative autocorrelation (overfit / oscillation)
+
+    Unlike Ljung-Box p-values or Shapiro-Wilk normality tests, the DW
+    statistic does *not* scale with sample size — it stays informative on
+    long fluorescence traces (n=120-180) where the alternative tests
+    saturate to "always reject."
+
+    Returns:
+        DW statistic, or None for residuals shorter than 2 points.
+    """
+    if residuals is None:
+        return None
+    arr = np.asarray(residuals, dtype=float)
+    n = arr.size
+    if n < 2:
+        return None
+    diff = np.diff(arr)
+    denom = float(np.sum(arr * arr))
+    if denom <= 0:
+        return None
+    return float(np.sum(diff * diff) / denom)
+
+
 @dataclass
 class FitStatistics:
     """Goodness of fit statistics."""
@@ -39,6 +68,7 @@ class FitStatistics:
     residual_mean: float
     residual_std: float
     residual_normality_pvalue: Optional[float] = None
+    residual_autocorr_dw: Optional[float] = None
 
     @property
     def is_good_fit(self) -> bool:
@@ -578,7 +608,8 @@ class CurveFitter:
         residual_mean = np.mean(residuals)
         residual_std = np.std(residuals)
 
-        # Residual normality test (Shapiro-Wilk)
+        # Residual normality test (Shapiro-Wilk) — kept for backward compat
+        # but no longer used by the reliability evaluator.
         residual_normality_pvalue = None
         if n >= 3:
             try:
@@ -586,6 +617,11 @@ class CurveFitter:
                 residual_normality_pvalue = p_value
             except Exception:
                 pass
+
+        # Residual autocorrelation (Durbin-Watson). Bounded [0, 4]; ~2 means
+        # no autocorrelation. Scale-free, unlike Ljung-Box p-values which
+        # saturate to ~0 on long fluorescence traces.
+        residual_autocorr_dw = compute_durbin_watson(residuals)
 
         return FitStatistics(
             r_squared=r_squared,
@@ -595,7 +631,8 @@ class CurveFitter:
             bic=bic,
             residual_mean=residual_mean,
             residual_std=residual_std,
-            residual_normality_pvalue=residual_normality_pvalue
+            residual_normality_pvalue=residual_normality_pvalue,
+            residual_autocorr_dw=residual_autocorr_dw,
         )
 
     def select_best_model(

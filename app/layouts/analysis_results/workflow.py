@@ -1,4 +1,5 @@
 """Curve fitting workflow components: stepper, plate selection, progress, results, fold changes."""
+import logging
 from typing import Optional, List, Dict, Any
 import dash_mantine_components as dmc
 from dash import html, dcc
@@ -6,6 +7,7 @@ from dash_iconify import DashIconify
 import plotly.graph_objects as go
 
 from app.theme import apply_plotly_theme
+from app.analysis import constants as analysis_constants
 from app.layouts.analysis_results.fitting_views import (
     build_fit_results_table,
     create_fit_quality_histogram,
@@ -13,6 +15,193 @@ from app.layouts.analysis_results.fitting_views import (
     create_multi_well_params_table,
     build_fold_change_table,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _format_reasons(by_reason: Dict[str, int]) -> str:
+    """Format `{reason: count}` as a human-readable tooltip string."""
+    if not by_reason:
+        return "All fits pass current thresholds"
+    return " · ".join(f"{count} {reason}" for reason, count in by_reason.items())
+
+
+def _compute_reliability_for_fits(fits) -> Dict[int, Any]:
+    """Run the reliability evaluator over a fit list using current defaults."""
+    if not fits:
+        return {}
+
+    try:
+        from app.analysis.fit_reliability import (
+            ReliabilityThresholds,
+            evaluate_batch,
+        )
+    except ImportError:
+        logger.exception("Failed to import fit_reliability module")
+        return {}
+
+    def _group_key(fit):
+        well = getattr(fit, "well", None)
+        construct_id = well.construct_id if well else None
+        ligand = getattr(well, "ligand_condition", None) if well else None
+        plate_id = well.plate_id if well else None
+        return (construct_id, ligand, plate_id)
+
+    try:
+        return evaluate_batch(
+            fits,
+            thresholds=ReliabilityThresholds(),
+            group_key=_group_key,
+        )
+    except (AttributeError, TypeError, ValueError):
+        logger.exception("Reliability evaluation failed")
+        return {}
+
+
+def _build_reliability_filter_panel(
+    reliability_preview: Dict[str, Any],
+    current_threshold: float,
+) -> dmc.Paper:
+    """Build the Fit Reliability Filter panel that replaces the old R² panel."""
+    excluded = reliability_preview.get("below_threshold", 0)
+    by_reason = reliability_preview.get("by_reason", {}) or {}
+    badge_color = "orange" if excluded > 0 else "green"
+
+    return dmc.Paper([
+        dmc.Group([
+            dmc.Group([
+                DashIconify(icon="mdi:filter-check", width=20, color="#228be6"),
+                dmc.Text("Fit Reliability Filter", fw=500),
+            ], gap="xs"),
+            dmc.Group([
+                dmc.Tooltip(
+                    label=_format_reasons(by_reason),
+                    children=dmc.Badge(
+                        id="r2-filter-preview-badge",
+                        children=f"{excluded} wells flagged",
+                        color=badge_color,
+                        size="sm",
+                        variant="light",
+                    ),
+                ),
+                dmc.Button(
+                    "Reset",
+                    id="reliability-reset-btn",
+                    variant="subtle",
+                    size="compact-xs",
+                    leftSection=DashIconify(icon="mdi:restart"),
+                ),
+            ], gap="xs"),
+        ], justify="space-between", mb="sm"),
+
+        dmc.Text(
+            "Flag and optionally exclude unreliable fits from fold-change "
+            "calculations. Combines R², plateau-reached, F_max relative SE, "
+            "Durbin-Watson residual autocorrelation, and a fractional "
+            "replicate-group outlier rule.",
+            size="xs", c="dimmed", mb="sm",
+        ),
+
+        dmc.Grid([
+            dmc.GridCol([
+                dmc.Text("R² threshold", size="sm", mb=4),
+                dmc.Slider(
+                    id="r2-threshold-slider",
+                    value=current_threshold,
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    marks=[
+                        {"value": 0.0, "label": "0.0"},
+                        {"value": 0.5, "label": "0.5"},
+                        {"value": 0.8, "label": "0.8"},
+                        {"value": 0.9, "label": "0.9"},
+                        {"value": 1.0, "label": "1.0"},
+                    ],
+                    mb="sm",
+                ),
+            ], span=12),
+            dmc.GridCol([
+                dmc.Text("Min plateau reached", size="sm", mb=4),
+                dmc.Slider(
+                    id="reliability-plateau-slider",
+                    value=analysis_constants.PCT_PLATEAU_BAD,
+                    min=0.0,
+                    max=1.0,
+                    step=0.01,
+                    marks=[
+                        {"value": analysis_constants.PCT_PLATEAU_BAD, "label": "0.50"},
+                        {"value": analysis_constants.PCT_PLATEAU_WEAK, "label": "0.70"},
+                        {"value": analysis_constants.PCT_PLATEAU_GOOD, "label": "0.85"},
+                    ],
+                    mb="sm",
+                ),
+            ], span=6),
+            dmc.GridCol([
+                dmc.Text("Max F_max relative SE (%)", size="sm", mb=4),
+                dmc.Slider(
+                    id="reliability-fmax-se-slider",
+                    value=analysis_constants.F_MAX_SE_PCT_BAD,
+                    min=0.0,
+                    max=20.0,
+                    step=0.1,
+                    marks=[
+                        {"value": analysis_constants.F_MAX_SE_PCT_GOOD, "label": "2.5"},
+                        {"value": analysis_constants.F_MAX_SE_PCT_WEAK, "label": "5"},
+                        {"value": analysis_constants.F_MAX_SE_PCT_BAD, "label": "8"},
+                        {"value": 12, "label": "12"},
+                    ],
+                    mb="sm",
+                ),
+            ], span=6),
+        ]),
+
+        dmc.Group([
+            dmc.Checkbox(
+                id="reliability-outlier-toggle",
+                label="Flag statistical outliers (>20% deviation from replicate median)",
+                checked=True,
+                size="xs",
+            ),
+            dmc.Checkbox(
+                id="reliability-shape-toggle",
+                label="Flag poor-shape fits (Durbin-Watson autocorrelation / RMSE)",
+                checked=False,
+                size="xs",
+            ),
+        ], gap="md", mb="sm"),
+
+        dmc.Group([
+            dmc.RadioGroup(
+                id="reliability-action-radio",
+                value="exclude_bad",
+                label="Action on flagged",
+                size="xs",
+                children=dmc.Group([
+                    dmc.Radio(label="Warn only", value="warn"),
+                    dmc.Radio(label="Exclude BAD", value="exclude_bad"),
+                    dmc.Radio(label="Exclude BAD + WEAK", value="exclude_bad_weak"),
+                ], gap="md"),
+            ),
+        ], mb="sm"),
+
+        dmc.Group([
+            dmc.Button(
+                "Apply Filter",
+                id="r2-apply-threshold-btn",
+                leftSection=DashIconify(icon="mdi:check"),
+                size="xs",
+                color="blue",
+            ),
+            dmc.Button(
+                "Include All Wells",
+                id="r2-include-all-btn",
+                variant="subtle",
+                size="xs",
+                color="gray",
+            ),
+        ], gap="sm"),
+    ], p="md", mb="md", withBorder=True)
 
 
 def create_curve_fitting_workflow(
@@ -453,13 +642,19 @@ def create_step3_fit_results(
                 # Filter selected wells to only include those in the current view
                 if selected_well_ids:
                     selected_well_ids = [wid for wid in selected_well_ids if wid in valid_well_ids]
+                else:
+                    selected_well_ids = []
 
-                # Auto-select first well if none selected (or all were filtered out)
-                if not selected_well_ids:
-                    selected_well_ids = [fits[0].well.id]
+                # Compute reliability flags for badge column (uses defaults; UI
+                # sliders re-render this view with applied thresholds)
+                reliability_results = _compute_reliability_for_fits(fits)
 
                 # Build results table
-                results_table_content = build_fit_results_table(fits, selected_well_ids)
+                results_table_content = build_fit_results_table(
+                    fits,
+                    selected_well_ids,
+                    reliability_results=reliability_results,
+                )
 
                 # Build histogram
                 r_squared_values = [f.r_squared for f in fits if f.r_squared is not None]
@@ -484,6 +679,8 @@ def create_step3_fit_results(
 
                     count = len(selected_well_ids)
                     selection_count_text = f"{count} well{'s' if count != 1 else ''} selected"
+                else:
+                    selection_count_text = "Select wells from table"
             else:
                 results_table_content = dmc.Text("No fit results available", c="dimmed", ta="center")
 
@@ -493,13 +690,21 @@ def create_step3_fit_results(
             traceback.print_exc()
             results_table_content = dmc.Text("Error loading results", c="red", ta="center")
 
-    # Get R\u00b2 exclusion preview for the filter panel
-    r2_preview = {"below_threshold": 0, "total_wells": total}
-    current_threshold = 0.80
+    # Get reliability preview using current default thresholds.
+    # The UI sliders are seeded from the same defaults so first-paint counts match.
+    reliability_preview: Dict[str, Any] = {
+        "below_threshold": 0,
+        "total_wells": total,
+        "by_reason": {},
+    }
+    current_threshold = analysis_constants.DEFAULT_RELIABILITY_R2_THRESHOLD
     if project_id:
         try:
+            from app.analysis.fit_reliability import ReliabilityThresholds
             from app.services.fitting_service import FittingService
-            r2_preview = FittingService.get_r2_exclusion_preview(project_id, current_threshold)
+            reliability_preview = FittingService.get_reliability_preview(
+                project_id, ReliabilityThresholds()
+            )
         except Exception:
             pass
 
@@ -532,66 +737,8 @@ def create_step3_fit_results(
             ], span=3),
         ], mb="md"),
 
-        # R\u00b2 Quality Filter Panel
-        dmc.Paper([
-            dmc.Group([
-                dmc.Group([
-                    DashIconify(icon="mdi:filter-check", width=20, color="#228be6"),
-                    dmc.Text("R\u00b2 Quality Filter", fw=500),
-                ], gap="xs"),
-                dmc.Badge(
-                    id="r2-filter-preview-badge",
-                    children=f"{r2_preview['below_threshold']} wells below threshold",
-                    color="orange" if r2_preview['below_threshold'] > 0 else "green",
-                    size="sm",
-                    variant="light",
-                ),
-            ], justify="space-between", mb="sm"),
-
-            dmc.Text(
-                "Exclude wells with low R\u00b2 from fold change calculations. "
-                "This helps ensure reliable FC estimates.",
-                size="xs", c="dimmed", mb="sm"
-            ),
-
-            dmc.Grid([
-                dmc.GridCol([
-                    dmc.Text("R\u00b2 Threshold", size="sm", mb="xs"),
-                    dmc.Slider(
-                        id="r2-threshold-slider",
-                        value=current_threshold,
-                        min=0.70,
-                        max=0.95,
-                        step=0.01,
-                        marks=[
-                            {"value": 0.70, "label": "0.70"},
-                            {"value": 0.80, "label": "0.80"},
-                            {"value": 0.90, "label": "0.90"},
-                            {"value": 0.95, "label": "0.95"},
-                        ],
-                        mb="xs",
-                    ),
-                ], span=8),
-                dmc.GridCol([
-                    dmc.Stack([
-                        dmc.Button(
-                            "Apply Threshold",
-                            id="r2-apply-threshold-btn",
-                            leftSection=DashIconify(icon="mdi:check"),
-                            size="xs",
-                            color="blue",
-                        ),
-                        dmc.Button(
-                            "Include All",
-                            id="r2-include-all-btn",
-                            variant="subtle",
-                            size="xs",
-                            color="gray",
-                        ),
-                    ], gap="xs"),
-                ], span=4),
-            ]),
-        ], p="md", mb="md", withBorder=True),
+        # Fit Reliability Filter Panel \u2014 replaces the old R\u00b2 panel
+        _build_reliability_filter_panel(reliability_preview, current_threshold),
 
         dmc.Grid([
             # Left: Results table + histogram (content rendered directly)
@@ -654,13 +801,6 @@ def create_step3_fit_results(
 
         # Actions
         dmc.Group([
-            dmc.Button(
-                "View Failed Wells",
-                id="fitting-view-failed-btn",
-                variant="outline",
-                leftSection=DashIconify(icon="mdi:alert-circle"),
-                color="red",
-            ),
             dmc.Button(
                 "Open Curve Browser",
                 id="fitting-open-browser-btn",

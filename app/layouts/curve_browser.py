@@ -74,6 +74,7 @@ def create_curve_browser_layout(
                         label="Session",
                         placeholder="All sessions",
                         data=[],
+                        value=None,
                         clearable=True,
                         searchable=True,
                     )
@@ -84,6 +85,7 @@ def create_curve_browser_layout(
                         label="Plate",
                         placeholder="All plates",
                         data=[],
+                        value=None,
                         clearable=True,
                         searchable=True,
                     )

@@ -54,5 +54,8 @@ class FittingService:
     get_r2_exclusion_preview = FitManagementService.get_r2_exclusion_preview
     apply_r2_exclusion = FitManagementService.apply_r2_exclusion
     clear_r2_exclusions = FitManagementService.clear_r2_exclusions
+    get_reliability_preview = FitManagementService.get_reliability_preview
+    apply_reliability_filter = FitManagementService.apply_reliability_filter
+    clear_reliability_exclusions = FitManagementService.clear_reliability_exclusions
     set_well_fc_inclusion = FitManagementService.set_well_fc_inclusion
     get_fc_exclusion_status = FitManagementService.get_fc_exclusion_status

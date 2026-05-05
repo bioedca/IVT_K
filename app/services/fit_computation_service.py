@@ -9,6 +9,7 @@ Handles:
 - Project-level fitting (standard and batched)
 - Split well aggregation
 """
+import math
 import numpy as np
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Callable
@@ -30,6 +31,30 @@ logger = logging.getLogger(__name__)
 class FittingError(Exception):
     """Raised when fitting operations fail."""
     pass
+
+
+def compute_pct_plateau_reached(
+    k_obs: Optional[float],
+    t_lag: Optional[float],
+    run_length_min: Optional[float],
+) -> Optional[float]:
+    """Compute fraction of plateau reached at end of trace.
+
+    Formula: 1 - exp(-k_obs * (run_length_min - t_lag)), clipped to [0, 1].
+    Returns 0.0 when run_length <= t_lag (no signal accumulation observed),
+    or None if any input is missing/non-positive.
+    """
+    if k_obs is None or t_lag is None or run_length_min is None:
+        return None
+    if k_obs <= 0:
+        return None
+    if run_length_min <= t_lag:
+        return 0.0
+    try:
+        pct = 1.0 - math.exp(-float(k_obs) * (float(run_length_min) - float(t_lag)))
+    except (ValueError, OverflowError):
+        return None
+    return max(0.0, min(1.0, pct))
 
 
 @dataclass
@@ -124,7 +149,8 @@ class FitComputationService:
         force_refit: bool = False,
         archive_existing: bool = True,
         refit_by: Optional[str] = None,
-        refit_reason: Optional[str] = None
+        refit_reason: Optional[str] = None,
+        run_length_min: Optional[float] = None,
     ) -> FitResultModel:
         """
         Fit a kinetic model to a single well's data.
@@ -194,7 +220,20 @@ class FitComputationService:
         else:
             fit_model = FitResultModel(well_id=well_id)
 
-        cls._update_fit_model(fit_model, fit_result, model_type)
+        # Reliability metrics — run_length is plate-level (passed in by fit_plate
+        # as a one-time MAX(timepoint) query) but defaults to per-well if absent.
+        effective_run_length = (
+            run_length_min if run_length_min is not None else float(t.max())
+        )
+        mean_signal_value = float(np.mean(F)) if F.size else None
+
+        cls._update_fit_model(
+            fit_model,
+            fit_result,
+            model_type,
+            run_length_min=effective_run_length,
+            mean_signal=mean_signal_value,
+        )
         db.session.add(fit_model)
 
         # Update well status
@@ -272,6 +311,16 @@ class FitComputationService:
             skipped_wells=len(wells) - len(sample_wells)  # Count neg controls as skipped
         )
 
+        # Plate-level run length: MAX(timepoint) across all sample wells.
+        # Computed once so each fit_well() call reuses the same value.
+        from sqlalchemy import func as _sql_func
+        sample_well_ids = [w.id for w in sample_wells]
+        run_length_min: Optional[float] = None
+        if sample_well_ids:
+            run_length_min = db.session.query(
+                _sql_func.max(RawDataPoint.timepoint)
+            ).filter(RawDataPoint.well_id.in_(sample_well_ids)).scalar()
+
         for well in sample_wells:
             progress.current_well = well.position
 
@@ -299,7 +348,8 @@ class FitComputationService:
                 fit_model = cls.fit_well(
                     well.id,
                     model_type=model_type,
-                    force_refit=force_refit
+                    force_refit=force_refit,
+                    run_length_min=run_length_min,
                 )
                 progress.successful_fits += 1
                 result.successful_fits += 1
@@ -659,7 +709,9 @@ class FitComputationService:
         cls,
         fit_model: FitResultModel,
         fit_result: FitResult,
-        model_type: str
+        model_type: str,
+        run_length_min: Optional[float] = None,
+        mean_signal: Optional[float] = None,
     ) -> None:
         """Update database model from fit result."""
         fit_model.model_type = model_type
@@ -680,5 +732,15 @@ class FitComputationService:
         fit_model.rmse = fit_result.statistics.rmse
         fit_model.aic = fit_result.statistics.aic
         fit_model.residual_normality_pvalue = fit_result.statistics.residual_normality_pvalue
+        fit_model.residual_autocorr_dw = fit_result.statistics.residual_autocorr_dw
+
+        # Reliability metrics
+        fit_model.run_length_min = run_length_min
+        fit_model.mean_signal = mean_signal
+        fit_model.pct_plateau_reached = compute_pct_plateau_reached(
+            k_obs=fit_model.k_obs,
+            t_lag=fit_model.t_lag,
+            run_length_min=run_length_min,
+        )
 
         fit_model.fitted_at = datetime.now(timezone.utc)
