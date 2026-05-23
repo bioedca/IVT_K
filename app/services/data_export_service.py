@@ -507,10 +507,19 @@ class DataExportService:
             })
 
         # Get fold changes - join through test_well -> Plate -> Session
+        from sqlalchemy.orm import aliased
+        ControlWell = aliased(Well, name="control_well")
+
         fcs = FoldChange.query.join(
             Well, FoldChange.test_well_id == Well.id
+        ).join(
+            ControlWell, FoldChange.control_well_id == ControlWell.id
         ).join(Plate).join(ExperimentalSession).filter(
-            ExperimentalSession.project_id == project_id
+            ExperimentalSession.project_id == project_id,
+            Well.is_excluded == False,
+            Well.exclude_from_fc == False,
+            ControlWell.is_excluded == False,
+            ControlWell.exclude_from_fc == False,
         ).all()
 
         for fc in fcs:

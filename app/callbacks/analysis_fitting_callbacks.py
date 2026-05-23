@@ -351,7 +351,6 @@ def register_analysis_fitting_callbacks(app):
             # Compute fold changes using the comprehensive StatisticsService
             try:
                 from app.services.statistics_service import StatisticsService
-                from app.models.fit_result import FoldChange
 
                 # Use StatisticsService which handles plate-level fold change computation
                 fold_changes = StatisticsService.compute_fold_changes(
@@ -361,12 +360,8 @@ def register_analysis_fitting_callbacks(app):
                 computed_count = len(fold_changes)
 
                 # Get total fold change count for this project (including pre-existing)
-                from app.models import Well, Plate, ExperimentalSession
-                total_fcs = FoldChange.query.join(
-                    Well, FoldChange.test_well_id == Well.id
-                ).join(Plate).join(ExperimentalSession).filter(
-                    ExperimentalSession.project_id == project_id
-                ).count()
+                from app.services.fold_change_query_helpers import visible_fold_change_count
+                total_fcs = visible_fold_change_count(project_id)
 
                 # Stay on step 4 but update UI with results
                 return (
@@ -638,33 +633,24 @@ def register_analysis_fitting_callbacks(app):
             raise PreventUpdate
 
         try:
-            from app.models.fit_result import FoldChange
-            from app.models import Well, Plate, ExperimentalSession, Construct
+            from app.models import Construct
+            from app.services.fold_change_query_helpers import visible_fold_change_query
 
             # Count existing fold changes
-            total_fc = FoldChange.query.join(
-                Well, FoldChange.test_well_id == Well.id
-            ).join(Plate).join(ExperimentalSession).filter(
-                ExperimentalSession.project_id == project_id
-            ).count()
+            visible_fc_query, test_well, _ = visible_fold_change_query(project_id)
+            total_fc = visible_fc_query.count()
 
             # Count by comparison type
-            mutant_wt_count = FoldChange.query.join(
-                Well, FoldChange.test_well_id == Well.id
-            ).join(Plate).join(ExperimentalSession).join(
-                Construct, Well.construct_id == Construct.id
+            mutant_wt_count = visible_fc_query.join(
+                Construct, test_well.construct_id == Construct.id
             ).filter(
-                ExperimentalSession.project_id == project_id,
                 Construct.is_wildtype.is_(False),
                 Construct.is_unregulated.is_(False)
             ).count()
 
-            wt_unreg_count = FoldChange.query.join(
-                Well, FoldChange.test_well_id == Well.id
-            ).join(Plate).join(ExperimentalSession).join(
-                Construct, Well.construct_id == Construct.id
+            wt_unreg_count = visible_fc_query.join(
+                Construct, test_well.construct_id == Construct.id
             ).filter(
-                ExperimentalSession.project_id == project_id,
                 Construct.is_wildtype.is_(True)
             ).count()
 
@@ -747,9 +733,10 @@ def register_analysis_fitting_callbacks(app):
             )
 
         try:
-            from app.models.fit_result import FitResult, FoldChange
+            from app.models.fit_result import FitResult
             from app.models import Well, Plate, ExperimentalSession, Construct, Project
             from app.models.plate_layout import WellType
+            from app.services.fold_change_query_helpers import visible_fold_change_count
             from sqlalchemy import func
 
             # Get project info
@@ -777,11 +764,7 @@ def register_analysis_fitting_callbacks(app):
             ).count()
 
             # Count fold changes
-            fc_count = FoldChange.query.join(
-                Well, FoldChange.test_well_id == Well.id
-            ).join(Plate).join(ExperimentalSession).filter(
-                ExperimentalSession.project_id == project_id
-            ).count()
+            fc_count = visible_fold_change_count(project_id)
 
             # Get plates with fit details
             plates = Plate.query.join(ExperimentalSession).filter(

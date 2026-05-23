@@ -78,6 +78,7 @@ class FoldChangeService:
 
         if not wells:
             logger.warning(f"No valid wells found on plate {plate_id}")
+            db.session.commit()
             return []
 
         # Check if any wells have ligand conditions

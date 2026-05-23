@@ -150,7 +150,10 @@ class HierarchicalService:
                                    ligand_condition, comparison_type
         """
         # Get all fold changes for the project
-        # Exclude data from QC rejected sessions
+        # Exclude data from QC rejected sessions and wells excluded from FC.
+        from sqlalchemy.orm import aliased
+        ControlWell = aliased(Well, name="control_well")
+
         query = (
             db.session.query(
                 FoldChange,
@@ -160,12 +163,17 @@ class HierarchicalService:
                 Construct.family,
             )
             .join(Well, FoldChange.test_well_id == Well.id)
+            .join(ControlWell, FoldChange.control_well_id == ControlWell.id)
             .join(Plate, Well.plate_id == Plate.id)
             .join(ExperimentalSession, Plate.session_id == ExperimentalSession.id)
             .outerjoin(Construct, Well.construct_id == Construct.id)
             .filter(
                 ExperimentalSession.project_id == project_id,
-                ExperimentalSession.qc_status != QCStatus.REJECTED
+                ExperimentalSession.qc_status != QCStatus.REJECTED,
+                Well.is_excluded == False,
+                Well.exclude_from_fc == False,
+                ControlWell.is_excluded == False,
+                ControlWell.exclude_from_fc == False,
             )
         )
 
@@ -222,14 +230,22 @@ class HierarchicalService:
         Returns:
             List of unique ligand condition strings (e.g., ["+Lig", "-Lig", "+Lig/-Lig"])
         """
+        from sqlalchemy.orm import aliased
+        ControlWell = aliased(Well, name="control_well")
+
         conditions = (
             db.session.query(FoldChange.ligand_condition)
             .join(Well, FoldChange.test_well_id == Well.id)
+            .join(ControlWell, FoldChange.control_well_id == ControlWell.id)
             .join(Plate, Well.plate_id == Plate.id)
             .join(ExperimentalSession, Plate.session_id == ExperimentalSession.id)
             .filter(
                 ExperimentalSession.project_id == project_id,
                 ExperimentalSession.qc_status != QCStatus.REJECTED,
+                Well.is_excluded == False,
+                Well.exclude_from_fc == False,
+                ControlWell.is_excluded == False,
+                ControlWell.exclude_from_fc == False,
                 FoldChange.ligand_condition.isnot(None)
             )
             .distinct()
@@ -251,15 +267,23 @@ class HierarchicalService:
         Returns:
             List of unique family names
         """
+        from sqlalchemy.orm import aliased
+        ControlWell = aliased(Well, name="control_well")
+
         families = (
             db.session.query(Construct.family)
             .join(Well, Well.construct_id == Construct.id)
             .join(FoldChange, FoldChange.test_well_id == Well.id)
+            .join(ControlWell, FoldChange.control_well_id == ControlWell.id)
             .join(Plate, Well.plate_id == Plate.id)
             .join(ExperimentalSession, Plate.session_id == ExperimentalSession.id)
             .filter(
                 ExperimentalSession.project_id == project_id,
                 ExperimentalSession.qc_status != QCStatus.REJECTED,
+                Well.is_excluded == False,
+                Well.exclude_from_fc == False,
+                ControlWell.is_excluded == False,
+                ControlWell.exclude_from_fc == False,
                 Construct.family.isnot(None),
                 Construct.is_unregulated == False,  # noqa: E712
             )

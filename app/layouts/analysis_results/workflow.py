@@ -846,6 +846,9 @@ def create_step4_fold_changes(
         from app.models import Well, Plate, ExperimentalSession, Construct, Project
         from app.models.fit_result import FoldChange
         from app.services.fitting_service import FittingService
+        from sqlalchemy.orm import aliased
+
+        ControlWell = aliased(Well, name="control_well")
 
         # Get project to check publish state
         project = Project.query.get(project_id)
@@ -858,17 +861,29 @@ def create_step4_fold_changes(
         # Get total fold changes for this project
         total_fcs = FoldChange.query.join(
             Well, FoldChange.test_well_id == Well.id
+        ).join(
+            ControlWell, FoldChange.control_well_id == ControlWell.id
         ).join(Plate).join(ExperimentalSession).filter(
-            ExperimentalSession.project_id == project_id
+            ExperimentalSession.project_id == project_id,
+            Well.is_excluded == False,
+            Well.exclude_from_fc == False,
+            ControlWell.is_excluded == False,
+            ControlWell.exclude_from_fc == False,
         ).count()
 
         # Count mutant -> WT pairs (test well's construct is NOT wildtype and NOT unregulated)
         mutant_wt_count = FoldChange.query.join(
             Well, FoldChange.test_well_id == Well.id
+        ).join(
+            ControlWell, FoldChange.control_well_id == ControlWell.id
         ).join(Plate).join(ExperimentalSession).join(
             Construct, Well.construct_id == Construct.id
         ).filter(
             ExperimentalSession.project_id == project_id,
+            Well.is_excluded == False,
+            Well.exclude_from_fc == False,
+            ControlWell.is_excluded == False,
+            ControlWell.exclude_from_fc == False,
             Construct.is_wildtype == False,
             Construct.is_unregulated == False
         ).count()
@@ -876,10 +891,16 @@ def create_step4_fold_changes(
         # Count WT -> Unreg pairs (test well's construct IS wildtype)
         wt_unreg_count = FoldChange.query.join(
             Well, FoldChange.test_well_id == Well.id
+        ).join(
+            ControlWell, FoldChange.control_well_id == ControlWell.id
         ).join(Plate).join(ExperimentalSession).join(
             Construct, Well.construct_id == Construct.id
         ).filter(
             ExperimentalSession.project_id == project_id,
+            Well.is_excluded == False,
+            Well.exclude_from_fc == False,
+            ControlWell.is_excluded == False,
+            ControlWell.exclude_from_fc == False,
             Construct.is_wildtype == True
         ).count()
 
