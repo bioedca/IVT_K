@@ -138,7 +138,7 @@ class Well(db.Model):
     ligand_condition = Column(String(10), nullable=True, default=None)  # "+Lig" or "-Lig"
     is_excluded = Column(Boolean, default=False)
     exclusion_reason = Column(String(500), nullable=True)
-    exclude_from_fc = Column(Boolean, default=False)  # Excluded from FC calculation due to low R²
+    exclude_from_fc = Column(Boolean, default=False, nullable=False, server_default="0")  # Excluded from FC calculation due to low R²
 
     # QC status tracking
     fit_status = Column(Enum(FitStatus), default=FitStatus.PENDING)
