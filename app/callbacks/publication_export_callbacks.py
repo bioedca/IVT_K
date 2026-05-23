@@ -297,8 +297,9 @@ def register_publication_export_callbacks(app):
 
         try:
             from app.models import (
-                Project, Plate, Well, FitResult, FoldChange, ExperimentalSession,
+                Project, Plate, Well, FitResult, ExperimentalSession,
             )
+            from app.services.fold_change_query_helpers import visible_fold_change_count
 
             project = Project.query.get(project_id)
             if not project:
@@ -308,11 +309,7 @@ def register_publication_export_callbacks(app):
             fit_count = FitResult.query.join(Well).join(Plate).join(
                 ExperimentalSession
             ).filter(ExperimentalSession.project_id == project_id).count()
-            fc_count = FoldChange.query.join(
-                Well, FoldChange.test_well_id == Well.id
-            ).join(Plate).join(ExperimentalSession).filter(
-                ExperimentalSession.project_id == project_id
-            ).count()
+            fc_count = visible_fold_change_count(project_id)
 
             if fit_count == 0:
                 return "No fit results", "yellow"

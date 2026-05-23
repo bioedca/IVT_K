@@ -994,6 +994,7 @@ class PublicationPackageService:
             Preview dict with structure, file list, and size estimates
         """
         from app.models import Project, Plate, Well, FitResult, FoldChange, AuditLog, ExperimentalSession
+        from sqlalchemy.orm import aliased
 
         preview = {
             "directories": [],
@@ -1041,10 +1042,17 @@ class PublicationPackageService:
                     })
 
                 # Fold changes CSV
+                ControlWell = aliased(Well, name="control_well")
                 fc_count = FoldChange.query.join(
                     Well, FoldChange.test_well_id == Well.id
+                ).join(
+                    ControlWell, FoldChange.control_well_id == ControlWell.id
                 ).join(Plate).join(ExperimentalSession).filter(
-                    ExperimentalSession.project_id == project_id
+                    ExperimentalSession.project_id == project_id,
+                    Well.is_excluded == False,
+                    Well.exclude_from_fc == False,
+                    ControlWell.is_excluded == False,
+                    ControlWell.exclude_from_fc == False,
                 ).count()
                 if fc_count > 0:
                     dir_info["files"].append({

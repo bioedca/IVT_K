@@ -109,32 +109,34 @@ class ComparisonGraphService:
             )
 
         # Find direct comparisons from fold changes
+        from sqlalchemy.orm import aliased
+        ControlWell = aliased(Well, name='control_well')
+
         fold_changes = (
             db.session.query(
                 FoldChange.test_well_id,
                 FoldChange.control_well_id,
-                Well.construct_id.label('test_construct_id')
+                Well.construct_id.label('test_construct_id'),
+                ControlWell.construct_id.label('control_construct_id'),
             )
             .join(Well, FoldChange.test_well_id == Well.id)
+            .join(ControlWell, FoldChange.control_well_id == ControlWell.id)
             .join(Plate, Well.plate_id == Plate.id)
-            .filter(Plate.session.has(project_id=project_id))
+            .filter(
+                Plate.session.has(project_id=project_id),
+                Well.is_excluded == False,
+                Well.exclude_from_fc == False,
+                ControlWell.is_excluded == False,
+                ControlWell.exclude_from_fc == False,
+            )
             .all()
         )
-
-        # Batch-load control wells to avoid N+1
-        control_well_ids = list({fc.control_well_id for fc in fold_changes})
-        control_wells_by_id = {
-            w.id: w
-            for w in Well.query.filter(Well.id.in_(control_well_ids)).all()
-        } if control_well_ids else {}
 
         # Count co-occurrences
         co_occurrence: Dict[Tuple[int, int], int] = {}
         for fc in fold_changes:
-            control_well = control_wells_by_id.get(fc.control_well_id)
-
-            if fc.test_construct_id and control_well:
-                key = (fc.test_construct_id, control_well.construct_id)
+            if fc.test_construct_id and fc.control_construct_id:
+                key = (fc.test_construct_id, fc.control_construct_id)
                 co_occurrence[key] = co_occurrence.get(key, 0) + 1
 
         # Add direct comparison edges
@@ -427,7 +429,13 @@ class ComparisonGraphService:
             .join(Well, FoldChange.test_well_id == Well.id)
             .join(ControlWell, FoldChange.control_well_id == ControlWell.id)
             .join(Plate, Well.plate_id == Plate.id)
-            .filter(Plate.session.has(project_id=project_id))
+            .filter(
+                Plate.session.has(project_id=project_id),
+                Well.is_excluded == False,
+                Well.exclude_from_fc == False,
+                ControlWell.is_excluded == False,
+                ControlWell.exclude_from_fc == False,
+            )
             .all()
         )
 
@@ -487,6 +495,10 @@ class ComparisonGraphService:
             .join(Plate, Well.plate_id == Plate.id)
             .filter(
                 Plate.session.has(project_id=project_id),
+                Well.is_excluded == False,
+                Well.exclude_from_fc == False,
+                ControlWell.is_excluded == False,
+                ControlWell.exclude_from_fc == False,
                 Well.construct_id == wt_construct_id,
                 ControlWell.construct_id == unreg.id
             )
@@ -529,10 +541,19 @@ class ComparisonGraphService:
         four_hop = sum(1 for p in graph.edges.values() if p.path_type == PathType.FOUR_HOP)
 
         # Count low precision from fold changes
+        from sqlalchemy.orm import aliased
+        ControlWell = aliased(Well, name='control_well')
+
         low_precision = FoldChange.query.join(
             Well, FoldChange.test_well_id == Well.id
+        ).join(
+            ControlWell, FoldChange.control_well_id == ControlWell.id
         ).join(Plate, Well.plate_id == Plate.id).filter(
             Plate.session.has(project_id=project_id),
+            Well.is_excluded == False,
+            Well.exclude_from_fc == False,
+            ControlWell.is_excluded == False,
+            ControlWell.exclude_from_fc == False,
             FoldChange.log_fc_fmax_se > 0.25  # ~0.5 CI width at 95%
         ).count()
 

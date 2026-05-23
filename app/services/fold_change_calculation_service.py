@@ -146,7 +146,13 @@ class FoldChangeCalculationService:
             .join(ControlWell, FoldChange.control_well_id == ControlWell.id)
             .join(Plate, TestWell.plate_id == Plate.id)
             .join(ExperimentalSession, Plate.session_id == ExperimentalSession.id)
-            .filter(ExperimentalSession.project_id == project_id)
+            .filter(
+                ExperimentalSession.project_id == project_id,
+                TestWell.is_excluded == False,
+                TestWell.exclude_from_fc == False,
+                ControlWell.is_excluded == False,
+                ControlWell.exclude_from_fc == False,
+            )
             .order_by(FoldChange.computed_at.desc())
             .all()
         )
