@@ -59,13 +59,19 @@ class FoldChangeService:
         if not plate:
             raise ComparisonError(f"Plate {plate_id} not found")
 
-        # Drop FoldChange rows whose test or control well on this plate is now excluded.
-        # Why: the iteration loop below only generates pairs from non-excluded wells,
-        # so it cannot reach (or overwrite) FCs whose underlying wells were excluded
-        # after the row was first written. Without this, marking a well excluded leaves
-        # stale FCs in the DB that downstream analyses (HierarchicalService, badge counts)
-        # still pull. See fc_exclusion_no_effect_explained.md.
-        cls._delete_orphan_fold_changes(plate_id)
+        if overwrite:
+            # Treat explicit recompute as authoritative replacement for this plate.
+            # Readers filter excluded wells, but persisted rows must also match the
+            # current included-well set so refreshes cannot resurrect stale FCs.
+            cls._delete_plate_fold_changes(plate_id)
+        else:
+            # Drop FoldChange rows whose test or control well on this plate is now excluded.
+            # Why: the iteration loop below only generates pairs from non-excluded wells,
+            # so it cannot reach (or overwrite) FCs whose underlying wells were excluded
+            # after the row was first written. Without this, marking a well excluded leaves
+            # stale FCs in the DB that downstream analyses (HierarchicalService, badge counts)
+            # still pull. See fc_exclusion_no_effect_explained.md.
+            cls._delete_orphan_fold_changes(plate_id)
 
         # Get all wells with successful fits (excluding manually excluded and FC-excluded wells)
         wells = Well.query.filter(
@@ -211,6 +217,41 @@ class FoldChangeService:
 
         db.session.commit()
         return fold_changes
+
+    @classmethod
+    def _delete_plate_fold_changes(cls, plate_id: int) -> int:
+        """
+        Delete every FoldChange row whose test or control well belongs to a plate.
+
+        Used for overwrite recompute so the persisted fold_changes table becomes a
+        replacement snapshot of the plate's current included successful wells.
+
+        Returns:
+            Number of rows deleted.
+        """
+        plate_well_ids = [
+            row.id for row in db.session.query(Well.id).filter(
+                Well.plate_id == plate_id,
+            ).all()
+        ]
+
+        if not plate_well_ids:
+            return 0
+
+        deleted = FoldChange.query.filter(
+            or_(
+                FoldChange.test_well_id.in_(plate_well_ids),
+                FoldChange.control_well_id.in_(plate_well_ids),
+            )
+        ).delete(synchronize_session="fetch")
+
+        if deleted:
+            logger.info(
+                "Deleted %d existing FoldChange rows on plate %d for overwrite recompute",
+                deleted, plate_id,
+            )
+
+        return deleted
 
     @classmethod
     def _delete_orphan_fold_changes(cls, plate_id: int) -> int:

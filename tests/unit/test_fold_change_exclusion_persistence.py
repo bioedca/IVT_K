@@ -18,6 +18,7 @@ from app.services.publication_package_service import (
     PublicationPackageService,
 )
 from app.services.fold_change_query_helpers import visible_fold_change_count, visible_fold_change_query
+from app.services.statistics_service import StatisticsService
 
 
 def _make_project_with_plate():
@@ -173,6 +174,75 @@ def test_all_wells_excluded_recompute_persists_fold_change_deletion(db_session):
     db.session.rollback()
 
     assert FoldChange.query.count() == 0
+
+
+def test_project_recompute_replaces_stale_excluded_fold_changes(db_session):
+    """Project-level overwrite recompute physically removes stale excluded rows."""
+    project, valid_fc, stale_fc = _make_project_with_valid_and_stale_fold_changes()
+    stale_fc_id = stale_fc.id
+
+    fold_changes = StatisticsService.compute_fold_changes(project.id, overwrite=True)
+    db.session.expire_all()
+
+    assert len(fold_changes) == 1
+    assert FoldChange.query.filter_by(id=stale_fc_id).count() == 0
+    assert FoldChange.query.count() == 1
+    assert visible_fold_change_count(project.id) == 1
+
+
+def test_project_recompute_recreates_fold_changes_after_include(db_session):
+    """A well re-included for FC analysis is persisted on overwrite recompute."""
+    project, plate, wt, mut_valid, _ = _make_project_with_plate()
+    _add_fitted_well(plate, wt, "A1", 500.0)
+    mut_well = _add_fitted_well(
+        plate,
+        mut_valid,
+        "B1",
+        1000.0,
+        exclude_from_fc=True,
+    )
+    db.session.commit()
+
+    assert StatisticsService.compute_fold_changes(project.id, overwrite=True) == []
+    assert visible_fold_change_count(project.id) == 0
+
+    mut_well.exclude_from_fc = False
+    db.session.commit()
+
+    fold_changes = StatisticsService.compute_fold_changes(project.id, overwrite=True)
+    db.session.expire_all()
+
+    assert len(fold_changes) == 1
+    assert FoldChange.query.count() == 1
+    assert visible_fold_change_count(project.id) == 1
+
+
+def test_project_recompute_rolls_back_failed_plate_replacement(db_session, monkeypatch):
+    """A failed overwrite recompute must not leave a plate's FC rows half-deleted."""
+    project, plate, wt, mut_valid, _ = _make_project_with_plate()
+    _add_fitted_well(plate, wt, "A1", 500.0)
+    _add_fitted_well(plate, mut_valid, "B1", 1000.0)
+    db.session.commit()
+
+    original_fold_changes = StatisticsService.compute_fold_changes(project.id, overwrite=True)
+    assert len(original_fold_changes) == 1
+    original_fc_id = original_fold_changes[0].id
+
+    def fail_pair_compute(cls, *args, **kwargs):
+        raise RuntimeError("simulated pair failure after plate delete")
+
+    monkeypatch.setattr(
+        FoldChangeService,
+        "_compute_well_pair_fc",
+        classmethod(fail_pair_compute),
+    )
+
+    assert StatisticsService.compute_fold_changes(project.id, overwrite=True) == []
+    db.session.expire_all()
+
+    assert FoldChange.query.filter_by(id=original_fc_id).count() == 1
+    assert FoldChange.query.count() == 1
+    assert visible_fold_change_count(project.id) == 1
 
 
 def test_fold_change_summary_ignores_test_and_control_exclusions(db_session):

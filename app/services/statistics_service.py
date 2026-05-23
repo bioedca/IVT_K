@@ -128,6 +128,7 @@ class StatisticsService:
                 )
                 fold_changes.extend(plate_fcs)
             except Exception as e:
+                db.session.rollback()
                 logger.warning(f"Failed to compute fold changes for plate {plate.id}: {e}")
 
         return fold_changes
