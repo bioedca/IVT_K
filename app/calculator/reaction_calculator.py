@@ -141,6 +141,8 @@ def calculate_buffer_volume(reaction_volume_ul: float, stock_x: float = 10.0, fi
     Returns:
         Buffer volume in µL
     """
+    if stock_x == 0:
+        return 0.0
     return reaction_volume_ul * (final_x / stock_x)
 
 
@@ -237,6 +239,16 @@ def calculate_single_reaction_volumes(
     utp_final_mm: float = 5.0,
     dfhbi_stock_um: float = 40000.0,
     dfhbi_final_um: float = 100.0,
+    buffer_stock_x: float = 10.0,
+    buffer_final_x: float = 1.0,
+    mgcl2_stock_mm: float = 1000.0,
+    mgcl2_final_mm: float = 10.0,
+    ppi_stock_u_ul: float = 0.1,
+    ppi_final_u_ul: float = 0.0008,
+    rnasin_stock_u_ul: float = 40.0,
+    rnasin_final_u_ul: float = 0.16,
+    t7_stock_u_ul: float = 1.0,
+    t7_final_u_ul: float = 0.002,
     include_dye: bool = True,
     reaction_volume_ul: Optional[float] = None,
     round_result: bool = True,
@@ -258,6 +270,11 @@ def calculate_single_reaction_volumes(
         utp_final_mm: UTP final concentration in mM
         dfhbi_stock_um: DFHBI stock concentration in µM
         dfhbi_final_um: DFHBI final concentration in µM
+        buffer_stock_x/buffer_final_x: Reaction buffer stock/final in X
+        mgcl2_stock_mm/mgcl2_final_mm: MgCl₂ stock/final in mM
+        ppi_stock_u_ul/ppi_final_u_ul: Pyrophosphatase stock/final in U/µL
+        rnasin_stock_u_ul/rnasin_final_u_ul: RNAsin stock/final in U/µL
+        t7_stock_u_ul/t7_final_u_ul: T7 RNA Polymerase stock/final in U/µL
         include_dye: Whether to include DFHBI dye
         reaction_volume_ul: Optional explicit reaction volume in µL
         round_result: Whether to round volumes for pipetting (True) or keep raw for calculation (False)
@@ -282,26 +299,30 @@ def calculate_single_reaction_volumes(
     def _maybe_round(vol: float) -> float:
         return round_volume_up(vol) if round_result else vol
 
-    # 1. Reaction buffer (10X -> 1X)
-    buffer_vol = _maybe_round(calculate_buffer_volume(v_rxn))
+    # 1. Reaction buffer (default 10X -> 1X)
+    buffer_vol = _maybe_round(
+        calculate_buffer_volume(v_rxn, stock_x=buffer_stock_x, final_x=buffer_final_x)
+    )
     components.append(ComponentVolume(
-        name="10X Reaction buffer",
+        # Label reflects the actual stock (e.g. "10X"/"5X") so protocol output
+        # never contradicts a user-configured buffer concentration.
+        name=f"{buffer_stock_x:g}X Reaction buffer",
         order=2,
-        stock_concentration=10.0,
+        stock_concentration=buffer_stock_x,
         stock_unit="X",
-        final_concentration=1.0,
+        final_concentration=buffer_final_x,
         final_unit="X",
         volume_ul=buffer_vol,
     ))
 
-    # 2. MgCl₂ (1M -> 10mM)
-    mgcl2_vol = _maybe_round(calculate_component_volume(v_rxn, 10.0, 1000.0))
+    # 2. MgCl₂ (default 1M -> 10mM)
+    mgcl2_vol = _maybe_round(calculate_component_volume(v_rxn, mgcl2_final_mm, mgcl2_stock_mm))
     components.append(ComponentVolume(
         name="MgCl₂",
         order=3,
-        stock_concentration=1000.0,
+        stock_concentration=mgcl2_stock_mm,
         stock_unit="mM",
-        final_concentration=10.0,
+        final_concentration=mgcl2_final_mm,
         final_unit="mM",
         volume_ul=mgcl2_vol,
     ))
@@ -341,39 +362,41 @@ def calculate_single_reaction_volumes(
         )
         components.append(comp)
 
-    # 5. Enzymes
-    # Pyrophosphatase: (V_rxn × 1.6) / 200
-    ppi_vol = _maybe_round(calculate_enzyme_volume(v_rxn, 1.6))
+    # 5. Enzymes (concentration-driven: V = C_final × V_rxn / C_stock).
+    # At the default stock/final this is identical to the historical fixed
+    # ratio V_rxn × factor / 200 (PPi 0.0008/0.1 = 1.6/200, RNAsin 0.16/40 =
+    # 0.8/200, T7 0.002/1.0 = 0.4/200) but now honours a user-supplied stock.
+    ppi_vol = _maybe_round(calculate_component_volume(v_rxn, ppi_final_u_ul, ppi_stock_u_ul))
     components.append(ComponentVolume(
         name="Pyrophosphatase",
         order=10,
-        stock_concentration=0.1,
+        stock_concentration=ppi_stock_u_ul,
         stock_unit="U/µL",
-        final_concentration=0.0008,
+        final_concentration=ppi_final_u_ul,
         final_unit="U/µL",
         volume_ul=ppi_vol,
     ))
 
-    # RNAsin: (V_rxn × 0.8) / 200
-    rnasin_vol = _maybe_round(calculate_enzyme_volume(v_rxn, 0.8))
+    rnasin_vol = _maybe_round(
+        calculate_component_volume(v_rxn, rnasin_final_u_ul, rnasin_stock_u_ul)
+    )
     components.append(ComponentVolume(
         name="RNAsin",
         order=11,
-        stock_concentration=40.0,
+        stock_concentration=rnasin_stock_u_ul,
         stock_unit="U/µL",
-        final_concentration=0.16,
+        final_concentration=rnasin_final_u_ul,
         final_unit="U/µL",
         volume_ul=rnasin_vol,
     ))
 
-    # T7 RNA Polymerase: (V_rxn × 0.4) / 200
-    t7_vol = _maybe_round(calculate_enzyme_volume(v_rxn, 0.4))
+    t7_vol = _maybe_round(calculate_component_volume(v_rxn, t7_final_u_ul, t7_stock_u_ul))
     components.append(ComponentVolume(
         name="T7 RNA Polymerase",
         order=12,
-        stock_concentration=1.0,
+        stock_concentration=t7_stock_u_ul,
         stock_unit="U/µL",
-        final_concentration=0.002,
+        final_concentration=t7_final_u_ul,
         final_unit="U/µL",
         volume_ul=t7_vol,
     ))
