@@ -16,7 +16,7 @@ from dash.exceptions import PreventUpdate
 import json
 import re
 
-from app.services import SmartPlannerService, SmartPlannerError
+from app.services import SmartPlannerService, SmartPlannerError, ReagentInventoryService
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -44,6 +44,51 @@ from app.calculator.constants import (
     DEFAULT_OVERAGE_PERCENT,
     STANDARD_COMPONENTS,
 )
+
+
+def _master_mix_from_inventory(
+    project_id,
+    *,
+    n_reactions,
+    constructs,
+    dna_mass_ug,
+    negative_template_count,
+    negative_dye_count,
+    reaction_volume_ul,
+    ligand_config,
+    include_dye=True,
+    overage_percent=DEFAULT_OVERAGE_PERCENT,
+    target_dna_nM=TARGET_DNA_CONCENTRATION_NM,
+):
+    """Run calculate_master_mix using the project's reagent inventory concentrations.
+
+    Single place that maps the inventory (stock + final for every component) onto
+    calculate_master_mix, so both the live preview and the publish path stay
+    inventory-driven and consistent.
+    """
+    conc = ReagentInventoryService.concentration_kwargs(project_id)
+    return calculate_master_mix(
+        n_reactions=n_reactions,
+        dna_mass_ug=dna_mass_ug,
+        overage_percent=overage_percent,
+        constructs=constructs,
+        negative_template_count=negative_template_count,
+        negative_dye_count=negative_dye_count,
+        include_dye=include_dye,
+        reaction_volume_ul=reaction_volume_ul,
+        target_dna_nM=target_dna_nM,
+        ligand_config=ligand_config,
+        gtp_stock_mm=conc["gtp_stock_mm"], gtp_final_mm=conc["gtp_final_mm"],
+        atp_stock_mm=conc["atp_stock_mm"], atp_final_mm=conc["atp_final_mm"],
+        ctp_stock_mm=conc["ctp_stock_mm"], ctp_final_mm=conc["ctp_final_mm"],
+        utp_stock_mm=conc["utp_stock_mm"], utp_final_mm=conc["utp_final_mm"],
+        dfhbi_stock_um=conc["dfhbi_stock_um"], dfhbi_final_um=conc["dfhbi_final_um"],
+        buffer_stock_x=conc["buffer_stock_x"], buffer_final_x=conc["buffer_final_x"],
+        mgcl2_stock_mm=conc["mgcl2_stock_mm"], mgcl2_final_mm=conc["mgcl2_final_mm"],
+        ppi_stock_u_ul=conc["ppi_stock_u_ul"], ppi_final_u_ul=conc["ppi_final_u_ul"],
+        rnasin_stock_u_ul=conc["rnasin_stock_u_ul"], rnasin_final_u_ul=conc["rnasin_final_u_ul"],
+        t7_stock_u_ul=conc["t7_stock_u_ul"], t7_final_u_ul=conc["t7_final_u_ul"],
+    )
 
 
 def _generate_printable_protocol_html(protocol, mm):
@@ -488,6 +533,26 @@ def _parse_step_text(text):
 
 def register_calculator_callbacks(app):
     """Register all calculator-related callbacks."""
+
+    @app.callback(
+        [
+            Output("calc-gtp-stock-input", "value"),
+            Output("calc-atp-stock-input", "value"),
+            Output("calc-ctp-stock-input", "value"),
+            Output("calc-utp-stock-input", "value"),
+        ],
+        Input("calc-project-store", "data"),
+    )
+    def load_calc_ntp_stocks(project_data):
+        """Pre-fill the calculator NTP-stock inputs from the project's inventory."""
+        if not project_data or not project_data.get("project_id"):
+            raise PreventUpdate
+        try:
+            inv = ReagentInventoryService.get_or_create(project_data["project_id"])
+            return inv.gtp_stock_mm, inv.atp_stock_mm, inv.ctp_stock_mm, inv.utp_stock_mm
+        except Exception:
+            logger.exception("Error loading NTP stocks for calculator")
+            raise PreventUpdate from None
 
     @app.callback(
         [
@@ -1067,6 +1132,10 @@ def register_calculator_callbacks(app):
             State("ligand-enabled-switch", "checked"),
             State("ligand-stock-input", "value"),
             State("ligand-final-input", "value"),
+            State("calc-gtp-stock-input", "value"),
+            State("calc-atp-stock-input", "value"),
+            State("calc-ctp-stock-input", "value"),
+            State("calc-utp-stock-input", "value"),
             State({"type": "construct-conc-input", "id": ALL}, "value"),
             State({"type": "construct-conc-input", "id": ALL}, "id"),
         ],
@@ -1085,6 +1154,10 @@ def register_calculator_callbacks(app):
         ligand_enabled,
         ligand_stock,
         ligand_final,
+        gtp_stock,
+        atp_stock,
+        ctp_stock,
+        utp_stock,
         conc_values,
         conc_ids,
     ):
@@ -1207,15 +1280,26 @@ def register_calculator_callbacks(app):
                 n_reactions += dfhbi_count or 2
             n_reactions *= ligand_multiplier
 
+            # Persist any inline NTP-stock edits back to the inventory (the single
+            # source of truth) so the calculator and settings stay in sync, then
+            # compute the master mix from the inventory. None inputs are ignored.
+            ReagentInventoryService.update_inventory(
+                project_id,
+                gtp_stock_mm=gtp_stock,
+                atp_stock_mm=atp_stock,
+                ctp_stock_mm=ctp_stock,
+                utp_stock_mm=utp_stock,
+            )
+
             # Calculate master mix with nM-based DNA targeting
-            mm = calculate_master_mix(
+            mm = _master_mix_from_inventory(
+                project_id,
                 n_reactions=n_reactions,
                 constructs=constructs,
                 dna_mass_ug=dna_mass,
                 negative_template_count=neg_template_count or 3,
                 negative_dye_count=dfhbi_count or 2 if include_dfhbi else 0,
                 reaction_volume_ul=volume_ul,
-                target_dna_nM=TARGET_DNA_CONCENTRATION_NM,
                 ligand_config=ligand_cfg,
             )
             
@@ -2191,7 +2275,8 @@ def register_calculator_callbacks(app):
                     final_concentration_uM=params.get("ligand_final_uM") or 100.0,
                 )
 
-            mm = calculate_master_mix(
+            mm = _master_mix_from_inventory(
+                project_id,
                 n_reactions=n_reactions,
                 dna_mass_ug=dna_mass,
                 overage_percent=DEFAULT_OVERAGE_PERCENT,
@@ -2200,7 +2285,6 @@ def register_calculator_callbacks(app):
                 negative_dye_count=params.get("negative_dfhbi_count", 0),
                 include_dye=params.get("include_dfhbi", True),
                 reaction_volume_ul=reaction_volume,
-                target_dna_nM=TARGET_DNA_CONCENTRATION_NM,
                 ligand_config=ligand_cfg,
             )
 

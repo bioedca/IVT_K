@@ -18,7 +18,6 @@ from app.calculator import (
 )
 from app.calculator.constants import DEFAULT_OVERAGE_PERCENT, TARGET_DNA_CONCENTRATION_NM
 from app.calculator.reaction_calculator import LigandConfig
-from app.models.reagent_inventory import CONCENTRATION_FIELDS
 from app.services.reagent_inventory_service import ReagentInventoryService
 
 
@@ -112,21 +111,9 @@ class CalculatorService:
             + negative_dye_count
         )
 
-        # Reagent concentrations come from the project's inventory (the single
-        # source of truth), read as plain floats. The model column names match
-        # calculate_master_mix's parameter names, so they map one-to-one.
-        inv = ReagentInventoryService.get_or_create(project_id)
-        conc: Dict[str, float] = {}
-        for field in CONCENTRATION_FIELDS:
-            value = getattr(inv, field)
-            if value is None:
-                # Columns are NOT NULL and seeded; a NULL means data corruption.
-                # Surface it rather than crash later with an opaque TypeError.
-                raise ValueError(
-                    f"Reagent inventory field {field!r} is unset for project {project_id}"
-                )
-            conc[field] = float(value)
-        # Inline overrides (e.g. the calculator's NTP-stock inputs) take precedence.
+        # Reagent concentrations from the project's inventory (single source of
+        # truth); inline NTP overrides take precedence.
+        conc = ReagentInventoryService.concentration_kwargs(project_id)
         for key, value in (ntp_concentrations or {}).items():
             if key in conc and value is not None:
                 conc[key] = float(value)
