@@ -5,13 +5,16 @@ Phase 2.8: Project dashboard UI with hub navigation (F2.5)
 Phase 2.9: Project settings (F2.1)
 """
 from dash import callback, Input, Output, State, ctx, no_update, html, ALL
+from dash.exceptions import PreventUpdate
 import dash_mantine_components as dmc
 import json
 
 from app.services.project_service import ProjectService, ProjectValidationError
 from app.services.construct_service import ConstructService
 from app.services.plate_layout_service import PlateLayoutService
+from app.services.reagent_inventory_service import ReagentInventoryService
 from app.layouts.project_list import create_project_card, create_empty_projects_message
+from app.models.reagent_inventory import CONCENTRATION_FIELDS
 from app.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -488,6 +491,61 @@ def register_project_callbacks(app):
                 message=str(e),
                 color="red",
                 action="show"
+            )
+
+    # ==================== Reagent Inventory Callbacks ====================
+
+    @app.callback(
+        [Output(f"settings-reagent-{col}", "value") for col in CONCENTRATION_FIELDS],
+        Input("settings-project-store", "data"),
+    )
+    def load_reagent_inventory(store_data):
+        """Pre-fill the reagent editor from the project's inventory."""
+        if not store_data or not store_data.get("project_id"):
+            raise PreventUpdate
+        try:
+            inv = ReagentInventoryService.get_or_create(store_data["project_id"])
+            return [getattr(inv, col) for col in CONCENTRATION_FIELDS]
+        except Exception:
+            # Don't break the settings page if the inventory can't be read;
+            # the inputs simply keep their layout defaults.
+            logger.exception("Error loading reagent inventory")
+            raise PreventUpdate from None
+
+    @app.callback(
+        Output("settings-reagents-notification", "children"),
+        Input("settings-reagents-save-btn", "n_clicks"),
+        [State("settings-project-store", "data")]
+        + [State(f"settings-reagent-{col}", "value") for col in CONCENTRATION_FIELDS],
+        prevent_initial_call=True,
+    )
+    def save_reagent_inventory(n_clicks, store_data, *values):
+        """Persist the reagent editor values to the project's inventory."""
+        if not n_clicks or not store_data or not store_data.get("project_id"):
+            return no_update
+
+        project_id = store_data["project_id"]
+        # None values (cleared inputs) are skipped by update_inventory, so an
+        # empty field leaves the stored value untouched.
+        fields = dict(zip(CONCENTRATION_FIELDS, values, strict=True))
+        try:
+            ReagentInventoryService.update_inventory(project_id, **fields)
+            return dmc.Notification(
+                title="Reagents Saved",
+                message="Reagent concentrations have been updated.",
+                color="green",
+                action="show",
+                autoClose=3000,
+            )
+        except Exception as e:
+            # update_inventory commits, so surface any DB/validation error as a
+            # notification rather than letting the callback crash the page.
+            logger.exception("Reagent inventory save error")
+            return dmc.Notification(
+                title="Error",
+                message=str(e),
+                color="red",
+                action="show",
             )
 
     # ==================== Project Dashboard Callbacks ====================
