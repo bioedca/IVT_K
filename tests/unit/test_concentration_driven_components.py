@@ -41,7 +41,7 @@ class TestDefaultEquivalence:
         assert vols["MgCl₂"] == pytest.approx(calculate_component_volume(V, 10.0, 1000.0))
 
     @pytest.mark.parametrize(
-        "name,factor",
+        ("name", "factor"),
         [
             ("Pyrophosphatase", 1.6),
             ("RNAsin", 0.8),
@@ -76,9 +76,14 @@ class TestStockVariation:
         assert doubled == pytest.approx(base / 2)
 
     def test_half_buffer_stock_doubles_volume(self):
+        # The buffer label reflects the stock, so a 5X stock is "5X Reaction buffer".
         base = _components()["10X Reaction buffer"]
-        halved = _components(buffer_stock_x=5.0)["10X Reaction buffer"]
+        halved = _components(buffer_stock_x=5.0)["5X Reaction buffer"]
         assert halved == pytest.approx(base * 2)
+
+    def test_buffer_label_reflects_stock(self):
+        assert "10X Reaction buffer" in _components()  # default unchanged
+        assert "5X Reaction buffer" in _components(buffer_stock_x=5.0)
 
     def test_ppi_and_rnasin_scale_with_stock(self):
         assert _components(ppi_stock_u_ul=0.2)["Pyrophosphatase"] == pytest.approx(0.2)

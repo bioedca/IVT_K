@@ -304,7 +304,9 @@ def calculate_single_reaction_volumes(
         calculate_buffer_volume(v_rxn, stock_x=buffer_stock_x, final_x=buffer_final_x)
     )
     components.append(ComponentVolume(
-        name="10X Reaction buffer",
+        # Label reflects the actual stock (e.g. "10X"/"5X") so protocol output
+        # never contradicts a user-configured buffer concentration.
+        name=f"{buffer_stock_x:g}X Reaction buffer",
         order=2,
         stock_concentration=buffer_stock_x,
         stock_unit="X",

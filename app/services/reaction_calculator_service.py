@@ -116,9 +116,16 @@ class CalculatorService:
         # source of truth), read as plain floats. The model column names match
         # calculate_master_mix's parameter names, so they map one-to-one.
         inv = ReagentInventoryService.get_or_create(project_id)
-        conc: Dict[str, float] = {
-            field: float(getattr(inv, field)) for field in CONCENTRATION_FIELDS
-        }
+        conc: Dict[str, float] = {}
+        for field in CONCENTRATION_FIELDS:
+            value = getattr(inv, field)
+            if value is None:
+                # Columns are NOT NULL and seeded; a NULL means data corruption.
+                # Surface it rather than crash later with an opaque TypeError.
+                raise ValueError(
+                    f"Reagent inventory field {field!r} is unset for project {project_id}"
+                )
+            conc[field] = float(value)
         # Inline overrides (e.g. the calculator's NTP-stock inputs) take precedence.
         for key, value in (ntp_concentrations or {}).items():
             if key in conc and value is not None:
