@@ -503,8 +503,14 @@ def register_project_callbacks(app):
         """Pre-fill the reagent editor from the project's inventory."""
         if not store_data or not store_data.get("project_id"):
             raise PreventUpdate
-        inv = ReagentInventoryService.get_or_create(store_data["project_id"])
-        return [getattr(inv, col) for col in CONCENTRATION_FIELDS]
+        try:
+            inv = ReagentInventoryService.get_or_create(store_data["project_id"])
+            return [getattr(inv, col) for col in CONCENTRATION_FIELDS]
+        except Exception:
+            # Don't break the settings page if the inventory can't be read;
+            # the inputs simply keep their layout defaults.
+            logger.exception("Error loading reagent inventory")
+            raise PreventUpdate from None
 
     @app.callback(
         Output("settings-reagents-notification", "children"),
@@ -531,8 +537,10 @@ def register_project_callbacks(app):
                 action="show",
                 autoClose=3000,
             )
-        except (ValueError, TypeError) as e:
-            logger.warning("Reagent inventory save error", error=str(e))
+        except Exception as e:
+            # update_inventory commits, so surface any DB/validation error as a
+            # notification rather than letting the callback crash the page.
+            logger.exception("Reagent inventory save error")
             return dmc.Notification(
                 title="Error",
                 message=str(e),

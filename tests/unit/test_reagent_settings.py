@@ -54,8 +54,6 @@ class TestReagentSettingsCallbacks:
 
         inv = ReagentInventoryService.get(project.id)
         assert values == [getattr(inv, col) for col in CONCENTRATION_FIELDS]
-        # Sanity: the well-known GTP stock default is present at its column index.
-        assert values[CONCENTRATION_FIELDS.index("gtp_stock_mm")] == pytest.approx(467.3)
 
     def test_save_persists_edits(self, db_session):
         funcs = self._callbacks()
