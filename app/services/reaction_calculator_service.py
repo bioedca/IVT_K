@@ -18,6 +18,8 @@ from app.calculator import (
 )
 from app.calculator.constants import DEFAULT_OVERAGE_PERCENT, TARGET_DNA_CONCENTRATION_NM
 from app.calculator.reaction_calculator import LigandConfig
+from app.models.reagent_inventory import CONCENTRATION_FIELDS
+from app.services.reagent_inventory_service import ReagentInventoryService
 
 
 class CalculatorService:
@@ -110,8 +112,17 @@ class CalculatorService:
             + negative_dye_count
         )
 
-        # Get NTP concentrations
-        ntp = ntp_concentrations or {}
+        # Reagent concentrations come from the project's inventory (the single
+        # source of truth), read as plain floats. The model column names match
+        # calculate_master_mix's parameter names, so they map one-to-one.
+        inv = ReagentInventoryService.get_or_create(project_id)
+        conc: Dict[str, float] = {
+            field: float(getattr(inv, field)) for field in CONCENTRATION_FIELDS
+        }
+        # Inline overrides (e.g. the calculator's NTP-stock inputs) take precedence.
+        for key, value in (ntp_concentrations or {}).items():
+            if key in conc and value is not None:
+                conc[key] = float(value)
 
         return calculate_master_mix(
             n_reactions=n_reactions,
@@ -121,14 +132,26 @@ class CalculatorService:
             negative_template_count=negative_template_count,
             negative_dye_count=negative_dye_count,
             include_dye=include_dye,
-            gtp_stock_mm=ntp.get('gtp_stock_mm', 467.3),
-            gtp_final_mm=ntp.get('gtp_final_mm', 6.0),
-            atp_stock_mm=ntp.get('atp_stock_mm', 364.8),
-            atp_final_mm=ntp.get('atp_final_mm', 5.0),
-            ctp_stock_mm=ntp.get('ctp_stock_mm', 343.3),
-            ctp_final_mm=ntp.get('ctp_final_mm', 5.0),
-            utp_stock_mm=ntp.get('utp_stock_mm', 407.8),
-            utp_final_mm=ntp.get('utp_final_mm', 5.0),
+            gtp_stock_mm=conc['gtp_stock_mm'],
+            gtp_final_mm=conc['gtp_final_mm'],
+            atp_stock_mm=conc['atp_stock_mm'],
+            atp_final_mm=conc['atp_final_mm'],
+            ctp_stock_mm=conc['ctp_stock_mm'],
+            ctp_final_mm=conc['ctp_final_mm'],
+            utp_stock_mm=conc['utp_stock_mm'],
+            utp_final_mm=conc['utp_final_mm'],
+            dfhbi_stock_um=conc['dfhbi_stock_um'],
+            dfhbi_final_um=conc['dfhbi_final_um'],
+            buffer_stock_x=conc['buffer_stock_x'],
+            buffer_final_x=conc['buffer_final_x'],
+            mgcl2_stock_mm=conc['mgcl2_stock_mm'],
+            mgcl2_final_mm=conc['mgcl2_final_mm'],
+            ppi_stock_u_ul=conc['ppi_stock_u_ul'],
+            ppi_final_u_ul=conc['ppi_final_u_ul'],
+            rnasin_stock_u_ul=conc['rnasin_stock_u_ul'],
+            rnasin_final_u_ul=conc['rnasin_final_u_ul'],
+            t7_stock_u_ul=conc['t7_stock_u_ul'],
+            t7_final_u_ul=conc['t7_final_u_ul'],
         )
 
     @staticmethod

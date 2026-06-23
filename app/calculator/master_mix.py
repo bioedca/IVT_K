@@ -75,6 +75,16 @@ def calculate_master_mix(
     utp_final_mm: float = 5.0,
     dfhbi_stock_um: float = 40000.0,
     dfhbi_final_um: float = 100.0,
+    buffer_stock_x: float = 10.0,
+    buffer_final_x: float = 1.0,
+    mgcl2_stock_mm: float = 1000.0,
+    mgcl2_final_mm: float = 10.0,
+    ppi_stock_u_ul: float = 0.1,
+    ppi_final_u_ul: float = 0.0008,
+    rnasin_stock_u_ul: float = 40.0,
+    rnasin_final_u_ul: float = 0.16,
+    t7_stock_u_ul: float = 1.0,
+    t7_final_u_ul: float = 0.002,
     reaction_volume_ul: Optional[float] = None,
     target_dna_nM: Optional[float] = None,
     ligand_config: Optional[LigandConfig] = None,
@@ -99,6 +109,8 @@ def calculate_master_mix(
         include_dye: Whether to include DFHBI in master mix
         *_stock_mm/*_final_mm: NTP stock/final concentrations
         dfhbi_stock_um/dfhbi_final_um: DFHBI concentrations
+        buffer_*/mgcl2_*/ppi_*/rnasin_*/t7_*: buffer, MgCl₂ and enzyme
+            stock/final concentrations (default to the standard recipe)
         reaction_volume_ul: Optional explicit reaction volume in µL
 
     Returns:
@@ -120,6 +132,16 @@ def calculate_master_mix(
         utp_final_mm=utp_final_mm,
         dfhbi_stock_um=dfhbi_stock_um,
         dfhbi_final_um=dfhbi_final_um,
+        buffer_stock_x=buffer_stock_x,
+        buffer_final_x=buffer_final_x,
+        mgcl2_stock_mm=mgcl2_stock_mm,
+        mgcl2_final_mm=mgcl2_final_mm,
+        ppi_stock_u_ul=ppi_stock_u_ul,
+        ppi_final_u_ul=ppi_final_u_ul,
+        rnasin_stock_u_ul=rnasin_stock_u_ul,
+        rnasin_final_u_ul=rnasin_final_u_ul,
+        t7_stock_u_ul=t7_stock_u_ul,
+        t7_final_u_ul=t7_final_u_ul,
         include_dye=include_dye,
         reaction_volume_ul=reaction_volume_ul,
         round_result=True, # Display rounded values
@@ -138,6 +160,16 @@ def calculate_master_mix(
         utp_final_mm=utp_final_mm,
         dfhbi_stock_um=dfhbi_stock_um,
         dfhbi_final_um=dfhbi_final_um,
+        buffer_stock_x=buffer_stock_x,
+        buffer_final_x=buffer_final_x,
+        mgcl2_stock_mm=mgcl2_stock_mm,
+        mgcl2_final_mm=mgcl2_final_mm,
+        ppi_stock_u_ul=ppi_stock_u_ul,
+        ppi_final_u_ul=ppi_final_u_ul,
+        rnasin_stock_u_ul=rnasin_stock_u_ul,
+        rnasin_final_u_ul=rnasin_final_u_ul,
+        t7_stock_u_ul=t7_stock_u_ul,
+        t7_final_u_ul=t7_final_u_ul,
         include_dye=include_dye,
         reaction_volume_ul=reaction_volume_ul,
         round_result=False, # Use raw values for calculation
