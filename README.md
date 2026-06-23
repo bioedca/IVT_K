@@ -165,6 +165,13 @@ python scripts/seed_data.py --full
 python scripts/seed_data.py --clean --full -v
 ```
 
+### Upgrading an existing install
+
+Upgrading a running deployment (rather than a fresh install) is code plus any new
+database migrations. See **[UPGRADE.md](UPGRADE.md)** for step-by-step
+instructions, including the upgrade to the per-project **reagent inventory**
+feature.
+
 ---
 
 ## Configuration
