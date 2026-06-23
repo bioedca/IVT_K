@@ -34,10 +34,14 @@ SQLite is single-writer, so stop the writers before migrating.
    # or just stop the `gunicorn ... wsgi:server` and `run_huey_worker.py` processes
    ```
 
-2. **Get the new code** (pull/checkout the reagent-inventory release):
+2. **Get the new code.** The feature is included as of commit `7ca64f6` (the
+   merge of PR #10), so any `main` at or after that commit has it. Pull the
+   release, or check out that exact commit for a reproducible upgrade:
 
    ```bash
    git -C /path/to/IVT_K pull --ff-only origin main
+   # or pin to the exact release commit:
+   # git -C /path/to/IVT_K checkout 7ca64f6
    ```
 
 3. **Apply the database migration.** A new Alembic migration
@@ -53,7 +57,9 @@ SQLite is single-writer, so stop the writers before migrating.
 
    ```bash
    sudo systemctl start ivt-app ivt-worker
-   # or: gunicorn -w 1 -b 0.0.0.0:8050 wsgi:server  +  python scripts/run_huey_worker.py
+   # or run the two processes yourself (in separate terminals):
+   #   gunicorn -w 1 -b 0.0.0.0:8050 wsgi:server
+   #   python scripts/run_huey_worker.py
    ```
 
 That's it. See [DEPLOYMENT.md](DEPLOYMENT.md) for the general run/migrate commands.
