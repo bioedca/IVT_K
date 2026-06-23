@@ -15,6 +15,64 @@ from dash import html, dcc
 import dash_mantine_components as dmc
 from dash_iconify import DashIconify
 
+from app.calculator.constants import STANDARD_COMPONENTS
+
+# NTP stock defaults from the calculator's single source of truth. The inputs are
+# pre-filled from the project reagent inventory at runtime; these are the fallback
+# values shown before that callback fires.
+_NTP_STOCK_DEFAULTS = {
+    c.name: c.stock_concentration
+    for c in STANDARD_COMPONENTS
+    if c.name in ("GTP", "ATP", "CTP", "UTP")
+}
+
+
+def _create_ntp_stock_panel():
+    """Prominent NTP stock-concentration inputs, synced with the reagent inventory."""
+    def _ntp_input(letter: str, name: str):
+        return dmc.NumberInput(
+            id=f"calc-{letter}-stock-input",
+            label=f"{name} stock (mM)",
+            value=_NTP_STOCK_DEFAULTS[name],
+            min=0,
+            step=0.1,
+            decimalScale=4,
+            style={"maxWidth": "160px"},
+        )
+
+    return dmc.Paper(
+        children=[
+            dmc.Group(
+                children=[
+                    DashIconify(icon="mdi:flask-round-bottom", width=18),
+                    dmc.Text("NTP stock concentrations", fw=600, size="sm"),
+                ],
+                gap="xs",
+                mb="xs",
+            ),
+            dmc.Text(
+                "Enter the certified stock concentration of each NTP lot (mM). "
+                "These are saved to this project's reagent inventory on Calculate.",
+                size="xs",
+                c="dimmed",
+                mb="sm",
+            ),
+            dmc.Group(
+                children=[
+                    _ntp_input("gtp", "GTP"),
+                    _ntp_input("atp", "ATP"),
+                    _ntp_input("ctp", "CTP"),
+                    _ntp_input("utp", "UTP"),
+                ],
+                grow=True,
+            ),
+        ],
+        p="md",
+        withBorder=True,
+        radius="md",
+        mb="md",
+    )
+
 
 def create_calculator_layout(project_id: int = None):
     """
@@ -247,6 +305,7 @@ def create_calculator_layout(project_id: int = None):
                                         _create_negative_controls_panel(),
                                         _create_ligand_controls_panel(),
                                         _create_replicate_settings_panel(),
+                                        _create_ntp_stock_panel(),
                                     ]),
                                 ],
                                 value="reaction-setup",

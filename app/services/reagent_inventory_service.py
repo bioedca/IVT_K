@@ -88,6 +88,26 @@ class ReagentInventoryService:
         return inventory
 
     @staticmethod
+    def concentration_kwargs(project_id: int) -> dict[str, float]:
+        """All stock/final concentrations as plain floats, keyed by column name.
+
+        The column names match calculate_master_mix's parameter names, so callers
+        pass them straight through. Reading as floats keeps the typed calculation
+        API free of SQLAlchemy Column types.
+        """
+        inv = ReagentInventoryService.get_or_create(project_id)
+        conc: dict[str, float] = {}
+        for field in CONCENTRATION_FIELDS:
+            value = getattr(inv, field)
+            if value is None:
+                # Columns are NOT NULL + seeded; a NULL means data corruption.
+                raise ValueError(
+                    f"Reagent inventory field {field!r} is unset for project {project_id}"
+                )
+            conc[field] = float(value)
+        return conc
+
+    @staticmethod
     def update_inventory(project_id: int, **fields: float | None) -> ReagentInventory:
         """Update concentration fields on a project's inventory and commit.
 
