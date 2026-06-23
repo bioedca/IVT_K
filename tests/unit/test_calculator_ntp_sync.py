@@ -30,7 +30,10 @@ class _CaptureApp:
 
 
 def _mgcl2(mm):
-    return next(c for c in mm.components if c.name == "MgCl₂")
+    try:
+        return next(c for c in mm.components if c.name == "MgCl₂")
+    except StopIteration:
+        raise AssertionError("MgCl₂ component not found in master mix") from None
 
 
 class TestConcentrationKwargs:

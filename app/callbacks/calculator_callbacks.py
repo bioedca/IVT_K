@@ -1301,6 +1301,8 @@ def register_calculator_callbacks(app):
                 negative_dye_count=dfhbi_count or 2 if include_dfhbi else 0,
                 reaction_volume_ul=volume_ul,
                 ligand_config=ligand_cfg,
+                # Match the publish path so the preview reflects what gets saved.
+                include_dye=include_dfhbi,
             )
             
             # Check for low pipetting volumes requiring dilution
