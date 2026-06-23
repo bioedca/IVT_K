@@ -77,6 +77,11 @@ class ProjectService:
         db.session.add(project)
         db.session.flush()  # Assigns project.id without committing
 
+        # Seed the reagent inventory with default concentrations (shares this
+        # transaction; commit happens below with the project).
+        from app.services.reagent_inventory_service import ReagentInventoryService
+        ReagentInventoryService.create_default(project.id, commit=False)
+
         # Log the action with the real project ID
         AuditLog.log_action(
             username=username,

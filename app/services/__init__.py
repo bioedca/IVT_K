@@ -34,6 +34,7 @@ from app.services.comparison_graph_service import ComparisonGraphService
 from app.services.precision_weight_service import PrecisionWeightService
 # Renamed from calculator_service.py per PRD
 from app.services.reaction_calculator_service import CalculatorService
+from app.services.reagent_inventory_service import ReagentInventoryService
 from app.services.smart_planner_service import (
     SmartPlannerService,
     SmartPlannerError,
@@ -153,6 +154,7 @@ __all__ = [
     "PrecisionWeightService",
     # Calculator service
     "CalculatorService",
+    "ReagentInventoryService",
     # Smart planner service
     "SmartPlannerService",
     "SmartPlannerError",
