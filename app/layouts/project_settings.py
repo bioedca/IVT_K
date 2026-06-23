@@ -6,6 +6,98 @@ Phase 2.9: Project settings (plate format, precision targets) (F2.1)
 from dash import html, dcc
 import dash_mantine_components as dmc
 
+from app.calculator.constants import STANDARD_COMPONENTS
+from app.models.reagent_inventory import COMPONENT_COLUMN_MAP
+
+# Reagent inventory editor: which components appear, grouped, with NTPs first
+# (the emphasis). Defaults/units come from STANDARD_COMPONENTS so this stays in
+# sync with the calculator's single source of truth.
+_COMPONENTS_BY_NAME = {c.name: c for c in STANDARD_COMPONENTS}
+_REAGENT_GROUPS = [
+    ("Nucleotides (NTPs)", ["GTP", "ATP", "CTP", "UTP"]),
+    ("Fluorescent dye", ["DFHBI dye"]),
+    ("Cofactor & buffer", ["MgCl₂", "10X Reaction buffer"]),
+    ("Enzymes", ["Pyrophosphatase", "RNAsin", "T7 RNA Polymerase"]),
+]
+
+
+def _reagent_number_input(input_id: str, label: str, unit: str, default: float):
+    """A single stock/final NumberInput for the reagent editor."""
+    return dmc.NumberInput(
+        id=input_id,
+        label=f"{label} ({unit})",
+        value=default,
+        min=0,
+        step=0.1,
+        decimalScale=4,
+        style={"maxWidth": "240px"},
+    )
+
+
+def _reagent_component_row(name: str):
+    """A stock + final input pair for one component."""
+    comp = _COMPONENTS_BY_NAME[name]
+    stock_col, final_col = COMPONENT_COLUMN_MAP[name]
+    return dmc.Group(
+        children=[
+            _reagent_number_input(
+                f"settings-reagent-{stock_col}", f"{name} stock",
+                comp.stock_unit, comp.stock_concentration,
+            ),
+            _reagent_number_input(
+                f"settings-reagent-{final_col}", f"{name} final",
+                comp.final_unit, comp.final_concentration,
+            ),
+        ],
+        grow=True,
+        align="flex-end",
+        mb="sm",
+    )
+
+
+def _create_reagents_tab():
+    """Reagent inventory editor tab (stock + final for every component)."""
+    sections = []
+    for group_label, names in _REAGENT_GROUPS:
+        sections.append(dmc.Text(group_label, fw=600, size="sm", c="teal", mb="xs"))
+        sections.extend(_reagent_component_row(name) for name in names)
+        sections.append(dmc.Divider(my="sm"))
+
+    return dmc.TabsPanel(
+        children=[
+            dmc.Paper(
+                children=[
+                    dmc.Title("Reagent stock & final concentrations", order=4, mb="xs"),
+                    dmc.Text(
+                        "Record the stock concentration of each reagent lot (and the "
+                        "target final concentration). The calculator uses these values "
+                        "to compute pipetting volumes. NTP stocks vary lot-to-lot — "
+                        "enter the value from the certificate of analysis.",
+                        size="sm", c="dimmed", mb="md",
+                    ),
+                    *sections,
+                    dmc.Group(
+                        children=[
+                            dmc.Button(
+                                "Save Reagent Concentrations",
+                                id="settings-reagents-save-btn",
+                                color="teal",
+                            ),
+                        ],
+                        justify="flex-end",
+                        mt="md",
+                    ),
+                    html.Div(id="settings-reagents-notification"),
+                ],
+                p="lg",
+                withBorder=True,
+                radius="md",
+            )
+        ],
+        value="reagents",
+        pt="md",
+    )
+
 
 def create_project_settings_layout(project_id: int = None):
     """
@@ -51,6 +143,7 @@ def create_project_settings_layout(project_id: int = None):
                             dmc.TabsTab("General", value="general"),
                             dmc.TabsTab("Analysis", value="analysis"),
                             dmc.TabsTab("QC Thresholds", value="qc"),
+                            dmc.TabsTab("Reagents", value="reagents"),
                             dmc.TabsTab("Ligand", value="ligand"),
                             dmc.TabsTab("Storage & Archive", value="storage")
                         ]
@@ -282,6 +375,9 @@ def create_project_settings_layout(project_id: int = None):
                         value="qc",
                         pt="md"
                     ),
+
+                    # Reagent inventory tab
+                    _create_reagents_tab(),
 
                     # Ligand settings tab
                     dmc.TabsPanel(
