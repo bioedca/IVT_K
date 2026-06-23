@@ -9,6 +9,8 @@ calculator constants remain the one authoritative definition of the components a
 their default concentrations.
 """
 
+from sqlalchemy.exc import IntegrityError
+
 from app.calculator.constants import STANDARD_COMPONENTS
 from app.extensions import db
 from app.models.reagent_inventory import (
@@ -73,11 +75,20 @@ class ReagentInventoryService:
         """
         inventory = ReagentInventoryService.get(project_id)
         if inventory is None:
-            inventory = ReagentInventoryService.create_default(project_id, commit=True)
+            try:
+                inventory = ReagentInventoryService.create_default(project_id, commit=True)
+            except IntegrityError:
+                # Another writer (e.g. the Huey worker) created it concurrently and
+                # tripped the project_id unique constraint; fetch the existing row.
+                db.session.rollback()
+                inventory = ReagentInventoryService.get(project_id)
+                if inventory is None:
+                    # Not a concurrent-insert race; surface the real error.
+                    raise
         return inventory
 
     @staticmethod
-    def update_inventory(project_id: int, **fields) -> ReagentInventory:
+    def update_inventory(project_id: int, **fields: float | None) -> ReagentInventory:
         """Update concentration fields on a project's inventory and commit.
 
         Only known concentration columns (see CONCENTRATION_FIELDS) are accepted;

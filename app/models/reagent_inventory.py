@@ -12,7 +12,7 @@ the column-level defaults below mirror those values and are kept honest by a uni
 test. Units are fixed per column (encoded in the column name): X for buffer,
 mM for MgCl2/NTPs, uM for DFHBI, U/uL for enzymes.
 """
-from sqlalchemy import Column, Float, ForeignKey, Integer
+from sqlalchemy import Column, Float, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.extensions import db
@@ -51,8 +51,14 @@ class ReagentInventory(db.Model, TimestampMixin):
     """
     __tablename__ = "reagent_inventories"
 
+    # Named to match the migration's UniqueConstraint, so the create_all() path
+    # (tests) and the Alembic path (production) declare uniqueness identically.
+    __table_args__ = (
+        UniqueConstraint("project_id", name="uq_reagent_inventories_project_id"),
+    )
+
     id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, unique=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
 
     # 10X Reaction buffer (X)
     buffer_stock_x = Column(Float, nullable=False, default=10.0)

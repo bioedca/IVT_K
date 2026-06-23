@@ -115,8 +115,32 @@ class TestReagentInventoryService:
     def test_update_inventory_rejects_unknown_field(self, db_session):
         project = ProjectService.create_project(name="Bad Field Project", username="tester")
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unknown reagent inventory field"):
             ReagentInventoryService.update_inventory(project.id, not_a_real_field=1.0)
+
+    def test_get_or_create_recovers_from_concurrent_insert(self, db_session, mocker):
+        """If a concurrent writer inserts first, get_or_create returns that row.
+
+        Simulates the race: our initial get() misses, create_default hits the
+        unique constraint (because the row already exists), and we recover by
+        re-fetching instead of propagating IntegrityError.
+        """
+        project = Project(name="Race Project", plate_format=PlateFormat.PLATE_384)
+        db.session.add(project)
+        db.session.commit()
+
+        # Pre-existing row created by the "other" writer.
+        existing = ReagentInventoryService.create_default(project.id, commit=True)
+
+        # First get() misses (race), second get() (in the except branch) finds it.
+        mocker.patch.object(
+            ReagentInventoryService, "get", side_effect=[None, existing]
+        )
+
+        result = ReagentInventoryService.get_or_create(project.id)
+
+        assert result is existing
+        assert ReagentInventory.query.filter_by(project_id=project.id).count() == 1
 
     def test_update_inventory_backfills_then_updates(self, db_session):
         """update_inventory works even if the project had no inventory yet."""

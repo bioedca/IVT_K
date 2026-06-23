@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.models import Project, Construct, AuditLog
 from app.models.project import PlateFormat
+from app.services.reagent_inventory_service import ReagentInventoryService
 
 
 class ProjectValidationError(Exception):
@@ -79,7 +80,6 @@ class ProjectService:
 
         # Seed the reagent inventory with default concentrations (shares this
         # transaction; commit happens below with the project).
-        from app.services.reagent_inventory_service import ReagentInventoryService
         ReagentInventoryService.create_default(project.id, commit=False)
 
         # Log the action with the real project ID
