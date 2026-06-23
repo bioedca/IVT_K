@@ -97,6 +97,12 @@ class Project(db.Model, TimestampMixin):
     analysis_versions = relationship("AnalysisVersion", back_populates="project")
     comparison_graphs = relationship("ComparisonGraph", back_populates="project")
     reaction_setups = relationship("ReactionSetup", back_populates="project")
+    reagent_inventory = relationship(
+        "ReagentInventory",
+        back_populates="project",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     methods_text = relationship("MethodsText", back_populates="project", uselist=False)
 
     def __init__(self, name: str, **kwargs):

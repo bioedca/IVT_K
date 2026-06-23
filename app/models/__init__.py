@@ -4,6 +4,7 @@ from app.models.family import Family
 from app.models.construct import Construct
 from app.models.plate_layout import PlateLayout, WellAssignment
 from app.models.reaction_setup import ReactionSetup, ReactionDNAAddition
+from app.models.reagent_inventory import ReagentInventory
 from app.models.experiment import ExperimentalSession, Plate, Reaction, Well, RawDataPoint, QCStatus
 from app.models.fit_result import FitResult, FitResultArchive, FoldChange, SignalQualityMetrics
 from app.models.analysis_version import (
@@ -37,6 +38,7 @@ __all__ = [
     # Reaction setup
     "ReactionSetup",
     "ReactionDNAAddition",
+    "ReagentInventory",
     # Experimental data
     "ExperimentalSession",
     "Plate",
